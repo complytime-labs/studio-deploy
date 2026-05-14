@@ -1,0 +1,24 @@
+ComplyTime Studio {{ .Chart.AppVersion }} installed in namespace {{ .Release.Namespace }}.
+
+Prerequisite: kagent >= 0.8.0 with KMCP controller must be installed in this cluster.
+
+Architecture:
+  Studio SPA:    Preact workbench — studio-ui (Nginx)
+  Gateway:       Go service — REST APIs, OAuth, A2A proxy
+  Assistant:     BYO ADK agent (Python) — studio-assistant
+  MCP servers:   gemara-mcp, oras-mcp, studio-mcp — deployed as MCPServer CRDs via KMCP
+{{- if .Values.clickhouse.enabled }}
+  ClickHouse:    Evidence store + clickhouse-mcp MCP server
+{{- end }}
+
+Access (studio-ui proxies API/auth to gateway — single port-forward):
+  Studio:        kubectl port-forward -n {{ .Release.Namespace }} svc/studio-ui 8080:80
+{{- if .Values.registry.enabled }}
+  OCI registry:  kubectl port-forward -n {{ .Release.Namespace }} svc/studio-registry {{ .Values.registry.service.port }}:{{ .Values.registry.service.port }}
+{{- end }}
+
+Local development:
+  go run ./cmd/gateway     # runs gateway (needs GEMARA_MCP_URL, ORAS_MCP_URL)
+
+Tear down:
+  helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }}

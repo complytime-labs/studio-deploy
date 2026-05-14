@@ -1,0 +1,95 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Local development stack — all ComplyTime Studio components.
+#
+# Expects sibling repos:
+#   ../complytime-studio   (data platform — Go gateway, MCP servers)
+#   ../studio-ui           (Preact SPA + Nginx)
+#   ../complytime-agents   (workbench + assistant agent)
+
+services:
+  gateway:
+    build:
+      context: ../complytime-studio
+      dockerfile: Dockerfile.gateway
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      POSTGRES_URL: postgres://studio:complytime-dev@postgres:5432/studio?sslmode=disable
+      NATS_URL: nats://nats:4222
+      CORS_ORIGINS: ""
+      REGISTRY_INSECURE: ""
+    depends_on:
+      - postgres
+      - nats
+
+  workbench:
+    build:
+      context: ../complytime-agents
+      dockerfile: Dockerfile.workbench
+    ports:
+      - "8090:8090"
+    environment:
+      WORKBENCH_PORT: "8090"
+      GEMARA_MCP_URL: http://gemara-mcp:3000/mcp
+      ORAS_MCP_URL: http://oras-mcp:3000/mcp
+      STUDIO_MCP_URL: http://studio-mcp:3000/mcp
+      AGENT_DIRECTORY: >-
+        [{"name":"studio-assistant","description":"Audit preparation, evidence synthesis, cross-framework coverage analysis","url":"http://localhost:8080/","skills":[{"id":"compliance-assistant","name":"Studio Assistant"}]}]
+    depends_on:
+      - gemara-mcp
+      - oras-mcp
+      - studio-mcp
+
+  studio:
+    build:
+      context: ../studio-ui
+    ports:
+      - "3000:80"
+    environment:
+      PLATFORM_URL: ""
+      GATEWAY_UPSTREAM: gateway:8080
+      WORKBENCH_UPSTREAM: workbench:8090
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: studio
+      POSTGRES_USER: studio
+      POSTGRES_PASSWORD: complytime-dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  gemara-mcp:
+    build:
+      context: ../complytime-studio
+      dockerfile: Dockerfile.gemara-mcp
+    command: ["--host", "0.0.0.0", "--port", "3000", "--pass-environment", "gemara-mcp", "serve"]
+    expose:
+      - "3000"
+
+  oras-mcp:
+    image: ghcr.io/oras-project/oras-mcp:v0.2.1
+    command: ["/bin/oras-mcp", "serve", "--transport", "sse", "--port", "3000"]
+    expose:
+      - "3000"
+
+  nats:
+    image: nats:2-alpine
+    ports:
+      - "4222:4222"
+
+  studio-mcp:
+    build:
+      context: ../complytime-studio
+      dockerfile: Dockerfile.studio-mcp
+    environment:
+      GATEWAY_INTERNAL_URL: http://gateway:8081
+    depends_on:
+      - gateway
+
+volumes:
+  pgdata:

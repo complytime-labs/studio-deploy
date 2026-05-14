@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: Apache-2.0
+{{- if .Values.workbench.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: studio-workbench
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "studio.labels" . | nindent 4 }}
+    app.kubernetes.io/name: studio-workbench
+    app.kubernetes.io/component: workbench
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: studio-workbench
+  template:
+    metadata:
+      labels:
+        {{- include "studio.labels" . | nindent 8 }}
+        app.kubernetes.io/name: studio-workbench
+        app.kubernetes.io/component: workbench
+    spec:
+      containers:
+        - name: workbench
+          image: "{{ .Values.workbench.image.repository }}:{{ .Values.workbench.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: workbench
+              containerPort: 8090
+              protocol: TCP
+            - name: agent
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: WORKBENCH_PORT
+              value: "8090"
+            {{- if .Values.mcpServers.gemara.enabled }}
+            - name: GEMARA_MCP_URL
+              value: "http://studio-gemara-mcp:3000/mcp"
+            {{- end }}
+            {{- if .Values.mcpServers.oras.enabled }}
+            - name: ORAS_MCP_URL
+              value: "http://studio-oras-mcp:3000/mcp"
+            {{- end }}
+            - name: STUDIO_MCP_URL
+              value: "http://studio-mcp:3000/mcp"
+            - name: MODEL_PROVIDER
+              value: {{ .Values.model.provider | quote }}
+            - name: MODEL_NAME
+              value: {{ .Values.model.name | quote }}
+            - name: AGENT_DIRECTORY
+              value: {{ .Values.workbench.agentDirectory | default "[]" | quote }}
+          readinessProbe:
+            httpGet:
+              path: /workbench/agents
+              port: workbench
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: studio-workbench
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "studio.labels" . | nindent 4 }}
+    app.kubernetes.io/name: studio-workbench
+    app.kubernetes.io/component: workbench
+spec:
+  type: ClusterIP
+  ports:
+    - name: workbench
+      port: 8090
+      targetPort: workbench
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: studio-workbench
+{{- end }}
