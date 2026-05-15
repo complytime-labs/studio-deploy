@@ -26,9 +26,6 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
-            - name: internal
-              containerPort: 8081
-              protocol: TCP
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
@@ -38,25 +35,23 @@ spec:
           startupProbe:
             httpGet:
               path: /healthz
-              port: {{ if .Values.auth.oauth2Proxy.enabled }}8081{{ else }}8080{{ end }}
+              port: 8080
             initialDelaySeconds: 5
             periodSeconds: 5
             failureThreshold: 60
           livenessProbe:
             httpGet:
               path: /healthz
-              port: {{ if .Values.auth.oauth2Proxy.enabled }}8081{{ else }}8080{{ end }}
+              port: 8080
             periodSeconds: 30
           readinessProbe:
             httpGet:
               path: /healthz
-              port: {{ if .Values.auth.oauth2Proxy.enabled }}8081{{ else }}8080{{ end }}
+              port: 8080
             periodSeconds: 10
           env:
             - name: PORT
               value: "8080"
-            - name: INTERNAL_PORT
-              value: "8081"
             - name: GITHUB_ORG
               value: {{ .Values.github.org | quote }}
             - name: GITHUB_REPO
@@ -64,19 +59,6 @@ spec:
             {{- if .Values.registry.enabled }}
             - name: REGISTRY_INSECURE
               value: "studio-registry:{{ .Values.registry.service.port }}"
-            {{- end }}
-            {{- if .Values.auth.apiTokenSecretName }}
-            - name: STUDIO_API_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.auth.apiTokenSecretName }}
-                  key: {{ .Values.auth.apiTokenSecretKey | default "api-token" }}
-            {{- else }}
-            - name: STUDIO_API_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: studio-cookie-secret
-                  key: api-token
             {{- end }}
             {{- if .Values.auth.oauth2Proxy.enabled }}
             - name: LISTEN_HOST
@@ -132,8 +114,6 @@ spec:
             {{- end }}
             - name: NATS_URL
               value: "nats://studio-nats:4222"
-            - name: NETWORKPOLICY_ENFORCED
-              value: "true"
           resources:
             requests:
               memory: "64Mi"
@@ -163,6 +143,19 @@ spec:
             - --skip-auth-route=GET=/auth/me
             - --skip-auth-route=GET=/auth/logged-out
             - --skip-auth-route=GET=/api/config
+            {{- if .Values.auth.oauth2Proxy.skipJwtBearerTokens }}
+            - --skip-jwt-bearer-tokens=true
+            - --bearer-token-login-fallback={{ ternary "true" "false" (ne .Values.auth.oauth2Proxy.bearerTokenLoginFallback false) }}
+            {{- range .Values.auth.oauth2Proxy.extraAudiences }}
+            - --oidc-extra-audience={{ . }}
+            {{- end }}
+            {{- range .Values.auth.oauth2Proxy.extraJwtIssuers }}
+            - --extra-jwt-issuers={{ . }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.auth.oauth2Proxy.forceJsonErrors }}
+            - --force-json-errors=true
+            {{- end }}
             {{- range .Values.auth.oauth2Proxy.allowedGroups }}
             - --allowed-group={{ . }}
             {{- end }}
@@ -234,25 +227,4 @@ spec:
       {{- else }}
       targetPort: 8080
       {{- end }}
-      protocol: TCP
----
-# Internal Service — agent-only traffic. Not exposed via Ingress.
-# Access restricted by studio-allow-gateway-internal NetworkPolicy.
-# See docs/decisions/internal-endpoint-isolation.md.
-apiVersion: v1
-kind: Service
-metadata:
-  name: studio-gateway-internal
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "studio.labels" . | nindent 4 }}
-    {{- include "studio.selectorLabels" (dict "component" "gateway" "root" .) | nindent 4 }}
-spec:
-  type: ClusterIP
-  selector:
-    {{- include "studio.selectorLabels" (dict "component" "gateway" "root" .) | nindent 4 }}
-  ports:
-    - name: internal
-      port: 8081
-      targetPort: 8081
       protocol: TCP

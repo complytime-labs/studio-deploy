@@ -4,7 +4,7 @@ CHART := charts/complytime
 RELEASE := studio
 NAMESPACE := complytime
 
-.PHONY: up down build logs seed ps helm-template helm-install helm-upgrade helm-uninstall
+.PHONY: up down build logs seed ps test-headless test-helm-headless test-api test-ui test-agents test-e2e helm-template helm-install helm-upgrade helm-uninstall
 
 # --- Docker Compose (local dev) ---
 
@@ -27,6 +27,35 @@ seed: ## Seed demo data into the gateway
 
 ps: ## Show running services
 	docker compose ps
+
+# --- Headless Platform Tests ---
+
+test-headless: ## Run headless API integration tests against a running gateway
+	./test-headless.sh
+
+test-api: test-headless test-helm-headless ## Run all API-layer tests
+
+test-ui: ## Run Playwright E2E smoke tests against a running stack
+	cd ../studio-ui && npx playwright test
+
+test-agents: ## Run agent unit + workbench integration tests
+	cd ../complytime-agents && make test
+
+test-e2e: test-api test-agents test-ui ## Run all E2E test layers
+
+test-helm-headless: ## Validate Helm renders without UI (studio.enabled=false)
+	@helm template $(RELEASE) $(CHART) \
+		--set studio.enabled=false \
+		--set auth.oauth2Proxy.enabled=false \
+		--set kagent.crdsAvailable=false > /dev/null \
+		&& echo "✓ Helm headless render passed" \
+		|| (echo "✗ Helm headless render failed" && exit 1)
+	@helm template $(RELEASE) $(CHART) \
+		--set studio.enabled=false \
+		--set auth.oauth2Proxy.enabled=false \
+		--set kagent.crdsAvailable=false 2>/dev/null | grep -c "studio-ui" | xargs test 0 -eq \
+		&& echo "✓ No studio-ui resources in headless mode" \
+		|| (echo "✗ studio-ui resources leaked into headless render" && exit 1)
 
 # --- Helm (Kubernetes) ---
 

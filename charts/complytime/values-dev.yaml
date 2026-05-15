@@ -7,7 +7,6 @@ auth:
   oauth2Proxy:
     callbackUrl: "http://localhost:8080/oauth2/callback"
     cookieSecure: false
-  apiToken: "studio-dev-token"
 
 blobStorage:
   useSSL: false

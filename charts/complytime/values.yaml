@@ -39,8 +39,8 @@ blobStorage:
 # Handles OIDC discovery, PKCE, JWKS, token refresh, and session cookies.
 # Supports any OIDC provider (Keycloak, Okta, Azure AD, Google, Dex, Hydra).
 # When disabled (dev mode), the sidecar is omitted. The gateway middleware
-# still returns 401 for /api/* requests without X-Forwarded-Email or
-# STUDIO_API_TOKEN — set apiToken below for local development.
+# still returns 401 for /api/* requests without X-Forwarded-Email (OAuth2 Proxy
+# injects this header after OIDC/JWT validation).
 auth:
   oauth2Proxy:
     enabled: true
@@ -63,12 +63,29 @@ auth:
     emailDomains: ["*"]
     # Restrict login by OIDC group claim. [] allows all.
     allowedGroups: []
-  # STUDIO_API_TOKEN for dev/CI seeding (bypasses OAuth2 Proxy).
-  # Auto-generated into studio-cookie-secret by default.
-  # To bring your own: set apiTokenSecretName (and optionally apiTokenSecretKey).
-  # Set apiTokenDisabled: true to disable the token entirely.
-  apiTokenSecretName: ""
-  apiTokenSecretKey: "api-token"
+    # -- Headless / service-to-service authentication.
+    # When true, OAuth2 Proxy validates JWT bearer tokens in Authorization
+    # headers against the OIDC provider's JWKS endpoint. External services
+    # obtain a JWT via client credentials grant (or device flow) from the
+    # same OIDC provider and send it as: Authorization: Bearer <jwt>.
+    # The proxy extracts email/groups/sub claims and injects the same
+    # X-Forwarded-* headers as browser sessions — zero gateway code changes.
+    # Token must have aud matching clientId (or an entry in extraAudiences).
+    skipJwtBearerTokens: false
+    # Return JSON error bodies instead of HTML redirects for API clients.
+    # Recommended when skipJwtBearerTokens is true.
+    forceJsonErrors: false
+    # When skipJwtBearerTokens is true and an invalid JWT is presented,
+    # fall back to login redirect (true) or return 403 immediately (false).
+    # Set false for headless-only deployments.
+    bearerTokenLoginFallback: true
+    # Additional OIDC audiences accepted for JWT validation beyond clientId.
+    # Use when service credentials have a different aud claim.
+    extraAudiences: []
+    # Additional trusted JWT issuers beyond the primary issuerUrl.
+    # Format: "issuer=audience" pairs. Each issuer must expose
+    # .well-known/openid-configuration or .well-known/jwks.json.
+    extraJwtIssuers: []
 
 # -- GitHub organization/user and repository name. Single source of truth
 # for platformRepo URL, Chart.yaml home/sources, and workbench links.
@@ -255,9 +272,8 @@ registry:
     enabled: true
     image: ghcr.io/oras-project/oras:v1.2.2
 
-# -- NATS lightweight messaging — required by the gateway for the
-# certification pipeline and draft-audit-log notifications.
-# The gateway exits if NATS_URL is not set.
+# -- NATS lightweight messaging — required by gateway (publish) and engine
+# (subscribe) for the certification pipeline and draft-audit-log notifications.
 # NATS is CNCF-graduated. Single-node, no JetStream — minimal footprint.
 nats:
   enabled: true
