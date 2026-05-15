@@ -45,6 +45,18 @@ spec:
             {{- end }}
             - name: STUDIO_MCP_URL
               value: "http://studio-mcp:3000/mcp"
+            {{- if .Values.postgres.auth.existingSecret }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgres.auth.existingSecret }}
+                  key: password
+            - name: POSTGRES_URL
+              value: "postgres://{{ .Values.postgres.auth.user }}:$(POSTGRES_PASSWORD)@studio-postgres:5432/{{ .Values.postgres.auth.database }}?sslmode={{ .Values.postgres.auth.sslmode | default "disable" }}"
+            {{- else }}
+            - name: POSTGRES_URL
+              value: "postgres://{{ .Values.postgres.auth.user }}:{{ .Values.postgres.auth.password }}@studio-postgres:5432/{{ .Values.postgres.auth.database }}?sslmode={{ .Values.postgres.auth.sslmode | default "disable" }}"
+            {{- end }}
             - name: MODEL_PROVIDER
               value: {{ .Values.model.provider | quote }}
             - name: MODEL_NAME

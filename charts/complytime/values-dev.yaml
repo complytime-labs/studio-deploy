@@ -1,12 +1,21 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# Dev overrides for kind clusters. Layered automatically by the Makefile.
-# Usage: helm upgrade --install ... -f values.yaml -f values-dev.yaml
+# Dev profile — full stack on a kind cluster with auth disabled.
+# Base layer for all local development profiles.
+#
+# Usage:
+#   helm install studio charts/complytime -f charts/complytime/values-dev.yaml
+#   — or —
+#   make helm-dev
 
 auth:
   oauth2Proxy:
+    enabled: false
     callbackUrl: "http://localhost:8080/oauth2/callback"
     cookieSecure: false
+
+kagent:
+  crdsAvailable: false
 
 blobStorage:
   useSSL: false

@@ -35,12 +35,14 @@ services:
       GEMARA_MCP_URL: http://gemara-mcp:3000/mcp
       ORAS_MCP_URL: http://oras-mcp:3000/mcp
       STUDIO_MCP_URL: http://studio-mcp:3000/mcp
+      POSTGRES_URL: postgres://studio:complytime-dev@postgres:5432/studio?sslmode=disable
       AGENT_DIRECTORY: >-
         [{"name":"studio-assistant","description":"Audit preparation, evidence synthesis, cross-framework coverage analysis","url":"http://localhost:8080/","skills":[{"id":"compliance-assistant","name":"Studio Assistant"}]}]
     depends_on:
       - gemara-mcp
       - oras-mcp
       - studio-mcp
+      - postgres
 
   studio:
     build:

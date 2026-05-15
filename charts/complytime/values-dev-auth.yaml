@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Dev + auth profile — full stack with OAuth2 Proxy enabled.
+# Layer on top of values-dev.yaml.
+#
+# Requires:
+#   - An OIDC provider (Keycloak, Dex, etc.) reachable from the cluster
+#   - A Kubernetes secret with client-secret and cookie-secret keys
+#
+# Usage:
+#   helm install studio charts/complytime \
+#     -f charts/complytime/values-dev.yaml \
+#     -f charts/complytime/values-dev-auth.yaml \
+#     --set auth.oauth2Proxy.issuerUrl=https://keycloak.example.com/realms/studio \
+#     --set auth.oauth2Proxy.clientId=complytime-studio
+#   — or —
+#   make helm-dev-auth OIDC_ISSUER=https://... OIDC_CLIENT_ID=...
+
+auth:
+  oauth2Proxy:
+    enabled: true
+    cookieSecure: false
+    skipJwtBearerTokens: true
+    forceJsonErrors: true
+    createSecret: true

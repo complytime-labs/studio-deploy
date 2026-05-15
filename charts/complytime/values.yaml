@@ -52,9 +52,13 @@ auth:
     # Must expose /.well-known/openid-configuration
     issuerUrl: ""
     clientId: ""
-    # Kubernetes Secret containing client-secret and cookie-secret keys.
+    # Kubernetes Secret containing the client-secret key.
     secretName: studio-oauth-credentials
     secretKey: client-secret
+    # When true, Helm creates the secret from clientSecret below (dev only —
+    # use external secrets or sealed-secrets in production).
+    createSecret: false
+    clientSecret: ""
     callbackUrl: "http://localhost:8080/oauth2/callback"
     scopes: "openid email profile"
     # Requires HTTPS. Set false for local Kind/Compose (Makefile handles this).
