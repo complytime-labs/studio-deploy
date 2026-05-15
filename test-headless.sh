@@ -119,6 +119,45 @@ else
   skip "Evidence fixture not found at ${DEMO_DIR}/eval-ampel-complyctl.yaml"
 fi
 
+# ── 7b. Async evidence ingest ──
+info "7b. Async evidence ingest via NATS"
+if [[ -f "${DEMO_DIR}/eval-ampel-complyctl.yaml" ]]; then
+  ASYNC_RESP=$(curl -s -w "\n%{http_code}" -X POST \
+    "${GATEWAY_URL}/api/evidence/ingest/async" "${AUTH_HEADER[@]}" \
+    -H "Content-Type: application/x-yaml" --data-binary @"${DEMO_DIR}/eval-ampel-complyctl.yaml")
+  ASYNC_CODE=$(echo "${ASYNC_RESP}" | tail -1)
+  ASYNC_BODY=$(echo "${ASYNC_RESP}" | sed '$d')
+  if [[ "${ASYNC_CODE}" == "202" ]]; then
+    pass "POST /api/evidence/ingest/async → 202"
+    JOB_ID=$(echo "${ASYNC_BODY}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('job_id',''))" 2>/dev/null || echo "")
+    if [[ -n "${JOB_ID}" ]]; then
+      pass "Async job_id: ${JOB_ID}"
+      # Poll for completion (max 10 attempts, 1s apart)
+      for attempt in $(seq 1 10); do
+        sleep 1
+        JOB_STATUS=$(curl -s "${GATEWAY_URL}/api/evidence/ingest/jobs/${JOB_ID}" "${AUTH_HEADER[@]}" \
+          | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null || echo "")
+        if [[ "${JOB_STATUS}" == "completed" ]]; then
+          pass "Async ingest job completed (attempt ${attempt})"
+          break
+        elif [[ "${JOB_STATUS}" == "failed" ]]; then
+          fail "Async ingest job failed (attempt ${attempt})"
+          break
+        fi
+        if [[ "${attempt}" -eq 10 ]]; then
+          fail "Async ingest job did not complete within 10s (status: ${JOB_STATUS})"
+        fi
+      done
+    else
+      skip "Could not extract job_id from async response"
+    fi
+  else
+    fail "POST /api/evidence/ingest/async → ${ASYNC_CODE} (expected 202)"
+  fi
+else
+  skip "Evidence fixture not found — skipping async ingest test"
+fi
+
 # ── 8. Evidence query ──
 info "8. Evidence query"
 assert_json_array "GET /api/evidence returns array" "/api/evidence?limit=10"
