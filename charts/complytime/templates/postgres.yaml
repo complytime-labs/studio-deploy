@@ -43,6 +43,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
           livenessProbe:
             exec:
               command: ["pg_isready", "-U", {{ .Values.postgres.auth.user | quote }}]
@@ -55,6 +57,10 @@ spec:
             periodSeconds: 10
           resources:
             {{- toYaml .Values.postgres.resources | nindent 12 }}
+      volumes:
+        - name: initdb
+          configMap:
+            name: studio-postgres-initdb
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -63,6 +69,26 @@ spec:
         resources:
           requests:
             storage: {{ .Values.postgres.storage.size }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: studio-postgres-initdb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "studio.labels" . | nindent 4 }}
+data:
+  01-reader-role.sql: |
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ .Values.postgres.auth.readerUser }}') THEN
+        CREATE ROLE {{ .Values.postgres.auth.readerUser }} LOGIN PASSWORD '{{ .Values.postgres.auth.readerPassword }}';
+      ELSE
+        ALTER ROLE {{ .Values.postgres.auth.readerUser }} PASSWORD '{{ .Values.postgres.auth.readerPassword }}';
+      END IF;
+    END $$;
+    GRANT USAGE ON SCHEMA public TO {{ .Values.postgres.auth.readerUser }};
+    GRANT SELECT ON ALL TABLES IN SCHEMA public TO {{ .Values.postgres.auth.readerUser }};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO {{ .Values.postgres.auth.readerUser }};
 ---
 apiVersion: v1
 kind: Service

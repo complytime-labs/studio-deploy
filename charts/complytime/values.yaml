@@ -247,6 +247,11 @@ postgres:
     password: complytime-dev  # dev only — use existingSecret for production
     existingSecret: ""
     sslmode: disable  # Use "require" or "verify-full" for production
+    # Read-only user for external dashboard clients (Grafana, Metabase).
+    # The migration creates studio_reader with SELECT-only grants.
+    # Override readerPassword via existingSecret in production.
+    readerUser: studio_reader
+    readerPassword: complytime-reader-dev
   storage:
     size: 1Gi
   resources:
