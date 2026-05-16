@@ -1,4 +1,5 @@
 metadata:
+  type: ThreatCatalog
   id: SEC.SLAM.CM
   description: Threat catalog for container management tool security assessment
   version: 1.0.0

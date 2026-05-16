@@ -4,6 +4,7 @@
 title: Container Management Tool Security Control Catalog
 
 metadata:
+  type: ControlCatalog
   id: SEC.SLAM.CM
   description: |
     Control catalog for container management tool security; mitigates threats

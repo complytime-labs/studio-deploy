@@ -197,7 +197,7 @@ mcpServers:
   studio:
     enabled: true
     image:
-      repository: studio-mcp
+      repository: complytime-mcp
       tag: latest
   # github-mcp removed — not required for audit dashboard workflow.
   # Re-enable if code search or repository access is needed.

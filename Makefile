@@ -11,7 +11,7 @@ UI_REPO := ../studio-ui
 AGENTS_REPO := ../complytime-agents
 
 # Images built from sibling repos
-IMAGES := studio-gateway complytime-studio studio-workbench studio-mcp
+IMAGES := studio-gateway complytime-studio studio-workbench complytime-mcp
 
 # OIDC settings for dev-auth profile (pass via env or CLI)
 OIDC_ISSUER ?=
@@ -62,7 +62,7 @@ kind-delete: ## Delete the kind cluster
 
 kind-build: ## Build all container images
 	docker build -f $(STUDIO_REPO)/Dockerfile.gateway -t studio-gateway:latest $(STUDIO_REPO)
-	docker build -f $(STUDIO_REPO)/Dockerfile.studio-mcp -t studio-mcp:latest $(STUDIO_REPO)
+	docker build -f $(STUDIO_REPO)/Dockerfile.complytime-mcp -t complytime-mcp:latest $(STUDIO_REPO)
 	docker build -f $(UI_REPO)/Dockerfile -t complytime-studio:latest $(UI_REPO)
 	docker build -f $(AGENTS_REPO)/Dockerfile.workbench -t studio-workbench:latest $(AGENTS_REPO)
 
