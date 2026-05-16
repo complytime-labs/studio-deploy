@@ -98,6 +98,53 @@ spec:
           protocol: TCP
 {{- end }}
 
+{{- if .Values.studio.enabled }}
+---
+# UI: accept ingress from anywhere on port 80 (entrypoint for users).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: studio-allow-ui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "studio.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: studio-ui
+      app.kubernetes.io/part-of: complytime-studio
+  ingress:
+    - ports:
+        - port: 80
+          protocol: TCP
+{{- end }}
+
+{{- if .Values.workbench.enabled }}
+---
+# Workbench: accept ingress from studio-ui on port 8090.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: studio-allow-workbench
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "studio.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: studio-workbench
+      app.kubernetes.io/part-of: complytime-studio
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-ui
+              app.kubernetes.io/part-of: complytime-studio
+      ports:
+        - port: 8090
+          protocol: TCP
+{{- end }}
+
 {{- if .Values.clickhouse.enabled }}
 ---
 # ClickHouse: accept ingress from namespace peers (clickhouse-mcp, ingest).
@@ -143,6 +190,10 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: gateway
+              app.kubernetes.io/part-of: complytime-studio
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-workbench
               app.kubernetes.io/part-of: complytime-studio
         - podSelector:
             matchLabels:
