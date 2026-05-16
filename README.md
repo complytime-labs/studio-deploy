@@ -1,8 +1,15 @@
 # Studio Deploy
 
-Central deployment repo for ComplyTime Studio. Orchestrates all three component repos for local development and deployment.
+Deployment repo for ComplyTime Studio. Provides Helm charts for Kind/Kubernetes and minimal infrastructure compose for local binary debugging.
 
 ## Prerequisites
+
+| Tool | Purpose |
+|:--|:--|
+| `kind` | Local Kubernetes cluster |
+| `kubectl` | Cluster interaction |
+| `helm` | Chart installation |
+| `docker` or `podman` | Container builds |
 
 Clone all repos as siblings:
 
@@ -14,56 +21,87 @@ upstream-repos/
   studio-deploy/        # This repo
 ```
 
-## Local Development
+## Full Stack (Kind + Helm)
 
 ```bash
-make build    # Build all images
-make up       # Start the stack
-make seed     # Seed demo data
+# Create cluster, build images, load into Kind
+make kind-reset
+
+# Deploy with OIDC auth (any provider: Google, Dex, Keycloak)
+make helm-dev-auth \
+  OIDC_ISSUER=https://accounts.google.com \
+  OIDC_CLIENT_ID=<your-client-id> \
+  OIDC_CLIENT_SECRET=<your-client-secret>
+```
+
+Or store credentials in `.env` (see `.env.example`):
+
+```bash
+cp .env.example .env   # fill in values
+source .env && make helm-dev-auth
+```
+
+Access via `kubectl port-forward`:
+
+```bash
+kubectl port-forward -n complytime svc/studio-ui 3000:80
+kubectl port-forward -n complytime svc/studio-gateway 8080:8080
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Services
-
-| Service | Port | Source Repo |
-|:--|:--|:--|
-| Studio UI (Nginx) | 3000 | studio-ui |
-| Data Platform (gateway) | 8080 | complytime-core |
-| Studio Workbench + Agent | 8090 | complytime-studio |
-| PostgreSQL | 5432 | -- |
-| NATS | 4222 | -- |
-| gemara-mcp | 3000 (internal) | complytime-core |
-| complytime-mcp | 3000 (internal) | complytime-core |
-
-## Architecture
-
-```
-Browser → localhost:3000 (Nginx)
-            ├── /api/*        → gateway:8080   (Data Platform)
-            ├── /auth/*       → gateway:8080
-            ├── /workbench/*  → workbench:8090  (Studio Workbench)
-            └── /*            → static SPA
-```
-
-## Kubernetes (Helm)
-
-The Helm chart lives at `charts/complytime/`. It deploys the Data Platform, Studio Workbench, Studio UI, PostgreSQL, NATS, and MCP servers into a Kubernetes cluster.
+### Other Helm profiles
 
 ```bash
-make helm-template     # Dry-run — render templates locally
-make helm-install      # Install into cluster (creates namespace)
+make helm-dev        # Full stack, no auth (OAuth2 Proxy disabled)
+make helm-headless   # API-only, no UI, no auth (headless data platform)
+```
+
+## Infrastructure Only (Local Debugging)
+
+For developers running gateway or workbench binaries directly:
+
+```bash
+make infra-up    # Start postgres + nats
+make infra-down  # Stop
+```
+
+Connect your local binary to:
+
+| Service | URL |
+|:--|:--|
+| PostgreSQL | `postgres://studio:complytime-dev@localhost:5432/studio?sslmode=disable` |
+| NATS | `nats://localhost:4222` |
+
+## Helm Chart
+
+The chart lives at `charts/complytime/`. Additional commands:
+
+```bash
+make helm-template     # Dry-run render
 make helm-upgrade      # Upgrade existing release
 make helm-uninstall    # Remove release
 ```
 
-Override values with `-f`:
+Override values:
 
 ```bash
 helm install studio charts/complytime -n complytime --create-namespace -f my-values.yaml
 ```
 
+## Architecture
+
+```
+Browser → :3000 (Nginx)
+            ├── /api/*        → OAuth2 Proxy → Gateway (localhost:8080 sidecar)
+            ├── /auth/*       → OAuth2 Proxy → Gateway
+            ├── /oauth2/*     → OAuth2 Proxy (OIDC callbacks)
+            ├── /workbench/*  → Workbench (Studio Workbench + Agent)
+            └── /*            → Static SPA
+```
+
+OAuth2 Proxy runs as a sidecar in the gateway Pod. The gateway binds to `127.0.0.1:8080` when auth is enabled, making it unreachable except through the proxy.
+
 ## License
 
 [Apache License 2.0](LICENSE)
-

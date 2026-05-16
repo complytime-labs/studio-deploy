@@ -22,7 +22,7 @@ VALUES_DEV := -f $(CHART)/values-dev.yaml
 VALUES_HEADLESS := $(VALUES_DEV) -f $(CHART)/values-headless.yaml
 VALUES_DEV_AUTH := $(VALUES_DEV) -f $(CHART)/values-dev-auth.yaml
 
-.PHONY: help up down build logs seed ps \
+.PHONY: help infra-up infra-down \
 	kind-create kind-delete kind-build kind-load kind-reset \
 	helm-headless helm-dev helm-dev-auth helm-template helm-upgrade helm-uninstall \
 	test-headless test-helm-headless test-api test-ui test-agents test-e2e
@@ -30,27 +30,13 @@ VALUES_DEV_AUTH := $(VALUES_DEV) -f $(CHART)/values-dev-auth.yaml
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-# --- Docker Compose (local dev) ---
+# --- Local infrastructure (for go run / python debugging) ---
 
-up: ## Start the full stack (docker compose)
+infra-up: ## Start postgres + nats for local binary debugging
 	docker compose up -d
 
-down: ## Stop and remove containers
+infra-down: ## Stop infrastructure containers
 	docker compose down
-
-build: ## Rebuild all images (docker compose)
-	docker compose build
-
-logs: ## Tail logs from all services
-	docker compose logs -f
-
-seed: ## Seed demo data into the gateway
-	@echo "Waiting for gateway to be healthy..."
-	@until curl -sf http://localhost:8080/healthz > /dev/null 2>&1; do sleep 2; done
-	cd $(STUDIO_REPO) && make seed
-
-ps: ## Show running services
-	docker compose ps
 
 # --- Kind cluster lifecycle ---
 
@@ -120,8 +106,8 @@ test-e2e: test-api test-agents test-ui ## Run all E2E test layers
 
 test-helm-headless: ## Validate Helm renders without UI (studio.enabled=false)
 	@helm template $(RELEASE) $(CHART) $(VALUES_HEADLESS) > /dev/null \
-		&& echo "✓ Helm headless render passed" \
-		|| (echo "✗ Helm headless render failed" && exit 1)
+		&& echo "Helm headless render passed" \
+		|| (echo "Helm headless render failed" && exit 1)
 	@helm template $(RELEASE) $(CHART) $(VALUES_HEADLESS) 2>/dev/null | grep -c "studio-ui" | xargs test 0 -eq \
-		&& echo "✓ No studio-ui resources in headless mode" \
-		|| (echo "✗ studio-ui resources leaked into headless render" && exit 1)
+		&& echo "No studio-ui resources in headless mode" \
+		|| (echo "studio-ui resources leaked into headless render" && exit 1)

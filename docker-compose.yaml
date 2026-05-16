@@ -1,11 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# Local development stack — all ComplyTime Studio components.
+# Minimal infrastructure for local development (go run / python debugging).
+# For the full stack, use Kind + Helm:
 #
-# Expects sibling repos:
-#   ../complytime-core     (data platform — Go gateway, MCP servers)
-#   ../studio-ui           (Preact SPA + Nginx)
-#   ../complytime-studio   (workbench + assistant agent)
+#   make kind-reset
+#   make helm-dev-auth OIDC_ISSUER=... OIDC_CLIENT_ID=... OIDC_CLIENT_SECRET=...
 
 services:
   postgres:
@@ -24,93 +23,6 @@ services:
     image: nats:2-alpine
     ports:
       - "4222:4222"
-
-  gateway:
-    build:
-      context: ../complytime-core
-      dockerfile: Dockerfile.gateway
-    ports:
-      - "8080:8080"
-    environment:
-      PORT: "8080"
-      POSTGRES_URL: postgres://studio:complytime-dev@postgres:5432/studio?sslmode=disable
-      NATS_URL: nats://nats:4222
-      CORS_ORIGINS: ""
-      REGISTRY_INSECURE: ""
-    restart: on-failure
-
-  gemara-mcp:
-    build:
-      context: ../complytime-core
-      dockerfile: Dockerfile.gemara-mcp
-    command: ["--host", "0.0.0.0", "--port", "3000", "--pass-environment", "gemara-mcp", "serve"]
-    expose:
-      - "3000"
-
-  oras-mcp:
-    image: ghcr.io/oras-project/oras-mcp:v0.2.1
-    command: ["serve"]
-    stdin_open: true
-
-  seed:
-    image: curlimages/curl:8.14.1
-    entrypoint: ["sh", "-c"]
-    command:
-      - |
-        echo "Waiting for gateway..."
-        until curl -sf http://gateway:8080/healthz >/dev/null 2>&1; do
-          sleep 3
-        done
-        echo "Bootstrapping admin user..."
-        curl -sf -X POST http://gateway:8080/api/bootstrap \
-          -H 'Content-Type: application/json' \
-          -H 'X-Forwarded-Email: seed@complytime.dev' \
-          -d '{}' || true
-        for f in /samples/*.yaml; do
-          echo "Ingesting $${f##*/}..."
-          curl -sf -X POST http://gateway:8080/api/ingest \
-            -H 'Content-Type: application/x-yaml' \
-            -H 'X-Forwarded-Email: seed@complytime.dev' \
-            --data-binary "@$$f"
-          echo ""
-        done
-        echo "Seed complete"
-    volumes:
-      - ./charts/complytime/samples:/samples:ro
-
-  complytime-mcp:
-    build:
-      context: ../complytime-core
-      dockerfile: Dockerfile.complytime-mcp
-    environment:
-      GATEWAY_URL: http://gateway:8080
-
-  workbench:
-    build:
-      context: ../complytime-studio
-      dockerfile: Dockerfile.workbench
-    ports:
-      - "8090:8090"
-    environment:
-      WORKBENCH_PORT: "8090"
-      GEMARA_MCP_URL: http://gemara-mcp:3000/mcp
-      ORAS_MCP_URL: http://oras-mcp:3000/mcp
-      STUDIO_MCP_URL: http://complytime-mcp:3000/mcp
-      POSTGRES_URL: postgres://studio:complytime-dev@postgres:5432/studio?sslmode=disable
-      AGENT_DIRECTORY: >-
-        [{"name":"studio-assistant","description":"Audit preparation, evidence synthesis, cross-framework coverage analysis","url":"http://localhost:8080/","skills":[{"id":"compliance-assistant","name":"Studio Assistant"}]}]
-    restart: on-failure
-
-  studio:
-    build:
-      context: ../studio-ui
-    ports:
-      - "3000:80"
-    environment:
-      PLATFORM_URL: ""
-      GATEWAY_UPSTREAM: gateway:8080
-      WORKBENCH_UPSTREAM: workbench:8090
-    restart: on-failure
 
 volumes:
   pgdata:
