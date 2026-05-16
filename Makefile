@@ -6,9 +6,9 @@ NAMESPACE := complytime
 KIND_CLUSTER := complytime
 
 # Sibling repo roots (override if layout differs)
-STUDIO_REPO := ../complytime-studio
+STUDIO_REPO := ../complytime-core
 UI_REPO := ../studio-ui
-AGENTS_REPO := ../complytime-agents
+AGENTS_REPO := ../complytime-studio
 
 # Images built from sibling repos
 IMAGES := studio-gateway complytime-studio studio-workbench complytime-mcp

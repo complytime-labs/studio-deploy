@@ -3,9 +3,9 @@
 # Local development stack — all ComplyTime Studio components.
 #
 # Expects sibling repos:
-#   ../complytime-studio   (data platform — Go gateway, MCP servers)
+#   ../complytime-core     (data platform — Go gateway, MCP servers)
 #   ../studio-ui           (Preact SPA + Nginx)
-#   ../complytime-agents   (workbench + assistant agent)
+#   ../complytime-studio   (workbench + assistant agent)
 
 services:
   postgres:
@@ -27,7 +27,7 @@ services:
 
   gateway:
     build:
-      context: ../complytime-studio
+      context: ../complytime-core
       dockerfile: Dockerfile.gateway
     ports:
       - "8080:8080"
@@ -41,7 +41,7 @@ services:
 
   gemara-mcp:
     build:
-      context: ../complytime-studio
+      context: ../complytime-core
       dockerfile: Dockerfile.gemara-mcp
     command: ["--host", "0.0.0.0", "--port", "3000", "--pass-environment", "gemara-mcp", "serve"]
     expose:
@@ -80,14 +80,14 @@ services:
 
   complytime-mcp:
     build:
-      context: ../complytime-studio
+      context: ../complytime-core
       dockerfile: Dockerfile.complytime-mcp
     environment:
       GATEWAY_URL: http://gateway:8080
 
   workbench:
     build:
-      context: ../complytime-agents
+      context: ../complytime-studio
       dockerfile: Dockerfile.workbench
     ports:
       - "8090:8090"
