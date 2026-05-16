@@ -46,11 +46,6 @@ jobs:
           docker build -t studio-gateway:latest -f _core/Dockerfile.gateway _core
           kind load docker-image studio-gateway:latest --name complytime
 
-      - uses: actions/checkout@v4
-        with:
-          repository: complytime-labs/complytime-core
-          path: _core
-
       - name: Build complytime-mcp image
         run: |
           docker build -t complytime-mcp:latest -f _core/Dockerfile.mcp _core

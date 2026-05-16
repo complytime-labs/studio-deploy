@@ -225,6 +225,10 @@ spec:
             matchLabels:
               app.kubernetes.io/name: gateway
               app.kubernetes.io/part-of: complytime-studio
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-workbench
+              app.kubernetes.io/part-of: complytime-studio
       ports:
         - port: 4222
           protocol: TCP

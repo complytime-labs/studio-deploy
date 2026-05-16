@@ -69,19 +69,6 @@ spec:
             - name: OAUTH2_PROXY_ENABLED
               value: "false"
             {{- end }}
-            {{- /*
-              PROXY_SECRET activates StripUntrustedProxyHeaders — requires the
-              proxy to send X-Proxy-Secret on every request. OAuth2 Proxy cannot
-              inject custom upstream headers, so this is disabled for the sidecar
-              pattern. Trust is network-enforced: the app binds to 127.0.0.1 when
-              the proxy is active, making port 8080 pod-internal only.
-              Enable manually for reverse-proxy deployments (Envoy/nginx) that
-              can add the header.
-            */ -}}
-            {{- if .Values.auth.proxySecret }}
-            - name: PROXY_SECRET
-              value: {{ .Values.auth.proxySecret | quote }}
-            {{- end }}
             {{- if .Values.blobStorage.enabled }}
             - name: BLOB_ENDPOINT
               value: {{ .Values.blobStorage.endpoint | quote }}
@@ -134,6 +121,8 @@ spec:
             - --http-address=0.0.0.0:4180
             - --cookie-secure={{ .Values.auth.oauth2Proxy.cookieSecure }}
             - --set-xauthrequest=true
+            # Required for JWT bearer auth (ADR #0027) — gateway validates
+            # access tokens for headless/service clients.
             - --pass-access-token=true
             - --code-challenge-method=S256
             - --skip-provider-button=true

@@ -59,8 +59,8 @@ spec:
             {{- toYaml .Values.postgres.resources | nindent 12 }}
       volumes:
         - name: initdb
-          configMap:
-            name: studio-postgres-initdb
+          secret:
+            secretName: studio-postgres-initdb
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -71,14 +71,20 @@ spec:
             storage: {{ .Values.postgres.storage.size }}
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
+type: Opaque
 metadata:
   name: studio-postgres-initdb
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "studio.labels" . | nindent 4 }}
-data:
-  01-reader-role.sql: |
+stringData:
+  01-schemas-and-roles.sql: |
+    -- Workbench schema for workbench-owned tables (programs, findings, etc.)
+    CREATE SCHEMA IF NOT EXISTS workbench;
+    GRANT ALL ON SCHEMA workbench TO {{ .Values.postgres.auth.user }};
+
+    -- Read-only role for external dashboard clients (Grafana, Metabase)
     DO $$ BEGIN
       IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ .Values.postgres.auth.readerUser }}') THEN
         CREATE ROLE {{ .Values.postgres.auth.readerUser }} LOGIN PASSWORD '{{ .Values.postgres.auth.readerPassword }}';
@@ -89,6 +95,9 @@ data:
     GRANT USAGE ON SCHEMA public TO {{ .Values.postgres.auth.readerUser }};
     GRANT SELECT ON ALL TABLES IN SCHEMA public TO {{ .Values.postgres.auth.readerUser }};
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO {{ .Values.postgres.auth.readerUser }};
+    GRANT USAGE ON SCHEMA workbench TO {{ .Values.postgres.auth.readerUser }};
+    GRANT SELECT ON ALL TABLES IN SCHEMA workbench TO {{ .Values.postgres.auth.readerUser }};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA workbench GRANT SELECT ON TABLES TO {{ .Values.postgres.auth.readerUser }};
 ---
 apiVersion: v1
 kind: Service

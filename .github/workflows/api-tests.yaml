@@ -34,8 +34,8 @@ jobs:
         run: |
           helm template studio charts/complytime \
             -f charts/complytime/values-dev-auth.yaml \
-            --set auth.oauth2Proxy.oidcIssuerUrl=https://example.com \
-            --set auth.oauth2Proxy.clientID=test \
+            --set auth.oauth2Proxy.issuerUrl=https://example.com \
+            --set auth.oauth2Proxy.clientId=test \
             --set auth.oauth2Proxy.clientSecret=test > /dev/null
 
       - name: Headless mode excludes UI

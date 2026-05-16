@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
+-include .env
+export
+
 CHART := charts/complytime
 RELEASE := studio
 NAMESPACE := complytime
@@ -13,10 +16,9 @@ AGENTS_REPO := ../complytime-studio
 # Images built from sibling repos
 IMAGES := studio-gateway complytime-studio studio-workbench complytime-mcp
 
-# OIDC settings for dev-auth profile (pass via env or CLI)
-OIDC_ISSUER ?=
-OIDC_CLIENT_ID ?=
-OIDC_CLIENT_SECRET ?=
+# OIDC settings for helm-dev-auth: define in `.env` (included above) or export
+# into the shell environment. Never pass OIDC_* as `make VAR=value` CLI
+# overrides (shows up in shell history).
 
 VALUES_DEV := -f $(CHART)/values-dev.yaml
 VALUES_HEADLESS := $(VALUES_DEV) -f $(CHART)/values-headless.yaml
@@ -71,10 +73,10 @@ helm-headless: ## Install headless profile (API-only, no auth)
 helm-dev: ## Install full dev profile (all components, no auth)
 	helm install $(RELEASE) $(CHART) -n $(NAMESPACE) --create-namespace $(VALUES_DEV)
 
-helm-dev-auth: ## Install dev + OAuth profile (requires OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET)
-	@test -n "$(OIDC_ISSUER)" || (echo "Set OIDC_ISSUER"; exit 1)
-	@test -n "$(OIDC_CLIENT_ID)" || (echo "Set OIDC_CLIENT_ID"; exit 1)
-	@test -n "$(OIDC_CLIENT_SECRET)" || (echo "Set OIDC_CLIENT_SECRET"; exit 1)
+helm-dev-auth: ## Dev+OAuth: OIDC_* from `.env`/env only (not make CLI args)
+	@test -n "$(OIDC_ISSUER)" || (echo "OIDC_ISSUER: add to .env (.env.example)"; exit 1)
+	@test -n "$(OIDC_CLIENT_ID)" || (echo "OIDC_CLIENT_ID: add to .env (.env.example)"; exit 1)
+	@test -n "$(OIDC_CLIENT_SECRET)" || (echo "OIDC_CLIENT_SECRET in .env, not CLI"; exit 1)
 	helm install $(RELEASE) $(CHART) -n $(NAMESPACE) --create-namespace $(VALUES_DEV_AUTH) \
 		--set auth.oauth2Proxy.issuerUrl=$(OIDC_ISSUER) \
 		--set auth.oauth2Proxy.clientId=$(OIDC_CLIENT_ID) \

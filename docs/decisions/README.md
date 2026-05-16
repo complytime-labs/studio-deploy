@@ -9,6 +9,7 @@ Platform decisions live in [complytime-core](https://github.com/complytime-labs/
 |:--|:--|:--|:--|
 | 0032 | [Architecture Extraction — Core + Studio](architecture-extraction.md) | Accepted | 2026-05-15 |
 | 0035 | [Kind + Helm as Sole Deployment Path](kind-only-deployment.md) | Accepted | 2026-05-16 |
+| 0037 | [Identity Trust Model](identity-trust-model.md) | Accepted | 2026-05-16 |
 
 ## Superseded / Deferred
 

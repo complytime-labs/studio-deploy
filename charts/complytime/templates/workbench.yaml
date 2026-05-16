@@ -9,6 +9,7 @@ metadata:
     {{- include "studio.labels" . | nindent 4 }}
     app.kubernetes.io/name: studio-workbench
     app.kubernetes.io/component: workbench
+    app.kubernetes.io/part-of: complytime-studio
 spec:
   replicas: 1
   selector:
@@ -20,6 +21,7 @@ spec:
         {{- include "studio.labels" . | nindent 8 }}
         app.kubernetes.io/name: studio-workbench
         app.kubernetes.io/component: workbench
+        app.kubernetes.io/part-of: complytime-studio
     spec:
       containers:
         - name: workbench
@@ -45,6 +47,10 @@ spec:
             {{- end }}
             - name: STUDIO_MCP_URL
               value: "http://studio-mcp:3000/mcp"
+            {{- if .Values.nats.enabled }}
+            - name: NATS_URL
+              value: "nats://studio-nats:4222"
+            {{- end }}
             {{- if .Values.postgres.auth.existingSecret }}
             - name: POSTGRES_PASSWORD
               valueFrom:
@@ -63,12 +69,22 @@ spec:
               value: {{ .Values.model.name | quote }}
             - name: AGENT_DIRECTORY
               value: {{ .Values.workbench.agentDirectory | default "[]" | quote }}
+          startupProbe:
+            httpGet:
+              path: /workbench/agents
+              port: workbench
+            failureThreshold: 30
+            periodSeconds: 2
           readinessProbe:
             httpGet:
               path: /workbench/agents
               port: workbench
-            initialDelaySeconds: 10
             periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /workbench/agents
+              port: workbench
+            periodSeconds: 30
           resources:
             requests:
               memory: "256Mi"
