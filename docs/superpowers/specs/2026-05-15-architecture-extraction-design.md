@@ -6,18 +6,18 @@ Two groups need different functionality from the same system:
 - **Group 1** needs a standalone evidence API — headless data platform, no UI, no programs.
 - **Group 2** needs a full audit workbench — programs, coverage analysis, agent-driven audit production, UI.
 
-The current monolith (`complytime-studio`) conflates the data platform with the workbench. This spec defines the extraction into two independent products that compose together.
+The former monolith (`complytime-studio`, Go) split into `complytime-core` (data platform) and `complytime-studio` (Python workbench, formerly `complytime-agents`). This spec records the target architecture and contracts; the extraction is complete.
 
 ## Repos
 
 | Repo | Role | Language |
 |:---|:---|:---|
 | `complytime-core` | Evidence data platform. Self-contained, self-deploying. Includes NATS and `complytime-mcp`. | Go |
-| `complytime-studio` | Audit workbench + agent + studio-mcp. | Python |
+| `complytime-studio` | Audit workbench + agent + workbench MCP (`studio-mcp`). | Python |
 | `studio-ui` | Preact SPA. Primary client of the workbench. | TypeScript |
 | `studio-deploy` | Full stack composition (core + studio + UI). | YAML |
 
-`complytime-core` is the current `complytime-studio` Go codebase, renamed. `complytime-studio` is the current `complytime-agents` repo, renamed. `studio-ui` stays as-is. `studio-deploy` updates references.
+`complytime-core` is the former Go `complytime-studio` repo (`github.com/complytime-labs/complytime-core`). `complytime-studio` is the former `complytime-agents` workbench repo (`github.com/complytime-labs/complytime-studio`). `studio-ui` stays as its own repo. `studio-deploy` composes them.
 
 ## Architecture
 
@@ -34,7 +34,7 @@ The current monolith (`complytime-studio`) conflates the data platform with the 
    │ complytime-studio │        │  complytime-core  │
    │   (workbench)     │───────▶│  (data platform)  │
    │                   │ REST   │                   │
-   │  studio-mcp        │        │  complytime-mcp   │
+   │  studio-mcp       │        │  complytime-mcp   │
    └────────┬──────────┘        └──────────┬────────┘
             │                              │
    ┌────────┴──────────┐        ┌──────────┴────────┐
@@ -70,7 +70,7 @@ Access by others: REST (`/workbench/*`), MCP (`studio-mcp`).
 
 | Protocol | Surface | Clients |
 |:---|:---|:---|
-| REST `/api/*` | Full CRUD. Evidence ingest, policy import, finalized audit logs. | UI (data exploration), workbench (reads + audit log promotion), CI/services |
+| REST `/api/*` | Full CRUD. Evidence ingest (`POST /api/ingest`), policy import, finalized audit logs. | UI (data exploration), workbench (reads + audit log promotion), CI/services |
 | MCP `complytime-mcp` | Complete evidence read surface. Resource URI prefix: `complytime://`. 13 static resources, 5 templates, `query_evidence` tool. No write tools. | Agent, Claude Desktop, Cursor |
 | SQL `studio_reader` | SELECT-only Postgres role on core DB only. | Grafana, Metabase, ad-hoc |
 
@@ -150,38 +150,42 @@ The agent and workbench are co-located in `complytime-studio`. Separation enforc
 
 | Priority | Action | Serves |
 |:---|:---|:---|
-| 1 | Make `complytime-core` self-deploying (own Helm chart, standalone Compose, remove program dependencies) | Group 1 |
-| 2 | Move programs + drafts to `complytime-studio` workbench (Python DB layer, REST endpoints, migrations) | Group 2 |
-| 3 | Build `studio-mcp` (workbench MCP server) for agent program access | Group 2 |
-| 4 | Update `studio-deploy` to compose core + studio | Group 2 |
+| 1 | `complytime-core` self-deploying (Helm chart, standalone Compose, program coupling removed where applicable) | Group 1 |
+| 2 | Programs + drafts on `complytime-studio` workbench (Python DB layer, REST, migrations) | Group 2 |
+| 3 | Workbench `studio-mcp` for agent program access | Group 2 |
+| 4 | `studio-deploy` composes core + studio | Group 2 |
 | 5 | Add policy-aware freshness and relevance certifiers to core | Both |
-| 6 | Update `studio-ui` to route program calls to workbench | Group 2 |
+| 6 | `studio-ui` routes program calls to workbench | Group 2 |
 
-Group 1 can be served as soon as priority 1 is done. They do not need to wait for the program migration.
+**Done:** Repo and MCP naming, `studio-deploy` composition, canonical ingest `POST /api/ingest` (obsolete routes under `/api/evidence/` for sync/async ingest removed).
+
+**Tracked work:** Priority 5 (policy-aware certifiers). Priorities 1–4 describe the landed split; prioritize against the live gateway and Helm chart rather than this table alone.
 
 ## Migration from Current State
 
 ### Repo renames (done)
-- `complytime-studio` → `complytime-core` (GitHub rename)
-- `complytime-agents` → `complytime-studio` (GitHub rename)
+- `complytime-studio` (Go data platform) → `complytime-core` (`github.com/complytime-labs/complytime-core`)
+- `complytime-agents` (Python workbench) → `complytime-studio` (`github.com/complytime-labs/complytime-studio`)
 
-### What moves
-- Program Go handlers (`internal/store/handlers_programs.go`, `internal/store/inventory.go` program_id logic) → rewritten in Python in `complytime-studio`
-- Program migrations (`005_programs.sql`, `009_program_members.sql`, `010_program_findings.sql`, `012_program_score_pct.sql`) → new Python migrations in `complytime-studio`
-- Draft audit log handlers → rewritten in Python in `complytime-studio`
-- `save_draft_audit_log` MCP tool → moves from `complytime-mcp` (was `studio-mcp`) to new `studio-mcp` in workbench
+Core MCP naming: former core `studio-mcp` binary is now `complytime-mcp` (resource prefix `complytime://`). Workbench MCP remains `studio-mcp` (`studio://`).
 
-### What stays
-- All evidence, policy, catalog, mapping, threat, risk, certification code stays in `complytime-core`
-- `complytime-mcp` (renamed from `studio-mcp`) stays in `complytime-core`, loses `save_draft_audit_log`, becomes read-only
+### What moved
+- Program Go handlers (`internal/store/handlers_programs.go`, `internal/store/inventory.go` program_id logic) → Python in `complytime-studio`
+- Program migrations (`005_programs.sql`, `009_program_members.sql`, `010_program_findings.sql`, `012_program_score_pct.sql`) → Python migrations in `complytime-studio`
+- Draft audit log handlers → Python in `complytime-studio`
+- `save_draft_audit_log` MCP tool → workbench `studio-mcp`; removed from core `complytime-mcp`
+
+### What stayed
+- Evidence, policy, catalog, mapping, threat, risk, certification code remains in `complytime-core`
+- `complytime-mcp` in `complytime-core`: read-only data surface (`save_draft_audit_log` not on core MCP)
 - Certifier pipeline stays in `complytime-core`
-- `studio-ui` stays as its own repo, updates API call targets
+- `studio-ui` remains its own repo; API routes updated for workbench vs core
 
 ### Deferred
 
 - **ClickHouse activation** — Evidence storage scales from Postgres to ClickHouse via `pg_clickhouse` FDW. Remains a core concern. Trigger: evidence volume exceeds Postgres capacity. Helm values already wired.
 
-### Cleanup in complytime-core after migration
+### Follow-on cleanup (complytime-core)
 - Remove program routes, handlers, store interfaces from gateway
 - Remove `program_id` parameter from `GET /api/inventory`
 - Remove program migrations (tables no longer created by core)

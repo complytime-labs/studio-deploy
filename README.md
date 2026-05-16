@@ -8,9 +8,9 @@ Clone all repos as siblings:
 
 ```
 upstream-repos/
-  complytime-studio/    # Data Platform (Go gateway, MCP servers)
+  complytime-core/      # Data Platform (Go gateway, MCP servers)
   studio-ui/            # Preact SPA + Nginx
-  complytime-agents/    # Studio Workbench + AI agents
+  complytime-studio/    # Studio Workbench + AI agents
   studio-deploy/        # This repo
 ```
 
@@ -29,13 +29,12 @@ Open [http://localhost:3000](http://localhost:3000).
 | Service | Port | Source Repo |
 |:--|:--|:--|
 | Studio UI (Nginx) | 3000 | studio-ui |
-| Data Platform (gateway) | 8080 | complytime-studio |
-| Studio Workbench + Agent | 8090 | complytime-agents |
+| Data Platform (gateway) | 8080 | complytime-core |
+| Studio Workbench + Agent | 8090 | complytime-studio |
 | PostgreSQL | 5432 | -- |
 | NATS | 4222 | -- |
-| gemara-mcp | 3000 (internal) | complytime-studio |
-| oras-mcp | 3000 (internal) | -- |
-| studio-mcp | 3000 (internal) | complytime-studio |
+| gemara-mcp | 3000 (internal) | complytime-core |
+| complytime-mcp | 3000 (internal) | complytime-core |
 
 ## Architecture
 
@@ -67,3 +66,4 @@ helm install studio charts/complytime -n complytime --create-namespace -f my-val
 ## License
 
 [Apache License 2.0](LICENSE)
+

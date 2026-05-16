@@ -1,10 +1,12 @@
 # complytime-core Self-Deploy Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** OPTIONAL: Use superpowers subagent tooling if extending this stack. Steps use Markdown checkboxes (`- [x]` when done).
 
-**Goal:** Make `complytime-core` (renamed from `complytime-studio`) a self-deploying evidence data platform with its own Helm chart and standalone Compose file, deployable without the workbench, UI, or programs.
+> **Status:** The rename and extraction work below is **complete** (`complytime-core`, `complytime-studio` workbench, `complytime-mcp`, `github.com/complytime-labs/…`, `POST /api/ingest`; obsolete `/api/evidence/` ingest routes removed). Checklists are marked done for history; use as a record of what shipped.
 
-**Architecture:** The gateway already supports nil `Programs`/`Jobs` stores — routes only register when populated. The work is: (1) add a config toggle for programs, (2) rename `studio-mcp` to `complytime-mcp`, (3) create a standalone Helm chart and Compose file in the core repo, (4) update local git remotes and references.
+**Outcome:** `complytime-core` is a self-contained evidence data platform with its own Helm chart and standalone Compose file, deployable without the workbench, UI, or programs.
+
+**Architecture (landed):** The gateway supports nil `Programs`/`Jobs` stores — routes register only when populated. Implemented: config toggle for programs, `studio-mcp` (core) renamed to **`complytime-mcp`**, standalone Helm chart and Compose in `complytime-core`, remotes and consumer repos updated (`studio-deploy`).
 
 **Tech Stack:** Go, Helm 3, Docker Compose, PostgreSQL 17, NATS 2
 
@@ -13,19 +15,20 @@
 ### Task 1: Update Local Git Remote
 
 **Files:**
-- Modify: local `.git/config` in the `complytime-studio` checkout
+- Modify: local `.git/config` in the `complytime-core` checkout (or clone `github.com/complytime-labs/complytime-core` directly)
 
-- [ ] **Step 1: Update remote URL**
+- [x] **Step 1: Update remote URL**
 
 ```bash
-cd /home/jpower/Documents/upstream-repos/complytime-studio
-git remote set-url origin $(git remote get-url origin | sed 's/complytime-studio/complytime-core/')
+cd /home/jpower/Documents/upstream-repos/complytime-core
+git remote set-url origin https://github.com/complytime-labs/complytime-core.git
+# or migrate an existing checkout: preserve org; ensure path ends with complytime-core
 git remote -v
 ```
 
-Expected: origin now points to `complytime-core`.
+Expected: origin points at `complytime-labs/complytime-core`.
 
-- [ ] **Step 2: Verify fetch works**
+- [x] **Step 2: Verify fetch works**
 
 ```bash
 git fetch origin
@@ -33,12 +36,9 @@ git fetch origin
 
 Expected: successful fetch, no errors.
 
-- [ ] **Step 3: Rename local directory**
+- [x] **Step 3: Local directory name**
 
-```bash
-cd /home/jpower/Documents/upstream-repos
-mv complytime-studio complytime-core
-```
+Use a sibling checkout directory named `complytime-core` next to `studio-deploy` and `complytime-studio` (workbench).
 
 ---
 
@@ -48,7 +48,7 @@ mv complytime-studio complytime-core
 - Modify: `cmd/gateway/main.go`
 - Test: `internal/openapi/spec_drift_test.go`
 
-- [ ] **Step 1: Write the conditional program wiring**
+- [x] **Step 1: Write the conditional program wiring**
 
 In `cmd/gateway/main.go`, wrap the `programStores` initialization with an env var check:
 
@@ -70,7 +70,7 @@ stores := store.Stores{
 }
 ```
 
-- [ ] **Step 2: Build and verify**
+- [x] **Step 2: Build and verify**
 
 ```bash
 go build ./cmd/gateway/
@@ -78,7 +78,7 @@ go build ./cmd/gateway/
 
 Expected: successful build.
 
-- [ ] **Step 3: Run existing tests**
+- [x] **Step 3: Run existing tests**
 
 ```bash
 go test ./internal/openapi/ -v
@@ -87,7 +87,7 @@ go test ./internal/store/ -v
 
 Expected: all tests pass. The spec drift test uses its own mock stores and is unaffected.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add cmd/gateway/main.go
@@ -96,16 +96,16 @@ git commit -S -s -m "feat: make program routes conditional via ENABLE_PROGRAMS e
 
 ---
 
-### Task 3: Rename studio-mcp to complytime-mcp
+### Task 3: Renamed core MCP: `studio-mcp` → `complytime-mcp` (completed)
 
 **Files:**
-- Modify: `cmd/studio-mcp/main.go` (version and Implementation name)
-- Rename: `cmd/studio-mcp/` → `cmd/complytime-mcp/`
-- Rename: `Dockerfile.studio-mcp` → `Dockerfile.complytime-mcp`
+- Modified: `cmd/complytime-mcp/main.go` (version and Implementation name)
+- Renamed: `cmd/studio-mcp/` → `cmd/complytime-mcp/`
+- Renamed: `Dockerfile.studio-mcp` → `Dockerfile.complytime-mcp`
 
-- [ ] **Step 1: Update Implementation name in main.go**
+- [x] **Step 1: Update Implementation name in main.go**
 
-In `cmd/studio-mcp/main.go`, change:
+In `cmd/complytime-mcp/main.go`:
 
 ```go
 server := mcp.NewServer(
@@ -114,25 +114,25 @@ server := mcp.NewServer(
 )
 ```
 
-- [ ] **Step 2: Update MCP resource URI prefix from `studio://` to `complytime://`**
+- [x] **Step 2: Update MCP resource URI prefix from `studio://` to `complytime://`**
 
-Replace all `"studio://` with `"complytime://` in `cmd/studio-mcp/main.go`. This affects:
+Replace all `"studio://` with `"complytime://` in `cmd/complytime-mcp/main.go`. This affects:
 - All `addJSONResource` calls (URI parameter)
 - All `addResourceTemplate` calls (URI template and prefix parameters)
 - The `extractParam` prefix strings
 
-- [ ] **Step 3: Rename directory and Dockerfile**
+- [x] **Step 3: Rename directory and Dockerfile**
 
 ```bash
 git mv cmd/studio-mcp cmd/complytime-mcp
 git mv Dockerfile.studio-mcp Dockerfile.complytime-mcp
 ```
 
-- [ ] **Step 4: Update Dockerfile.complytime-mcp build path**
+- [x] **Step 4: Update Dockerfile.complytime-mcp build path**
 
-If the Dockerfile references `cmd/studio-mcp`, update to `cmd/complytime-mcp`.
+If the Dockerfile still referenced `cmd/studio-mcp`, it now uses `cmd/complytime-mcp`.
 
-- [ ] **Step 5: Build and verify**
+- [x] **Step 5: Build and verify**
 
 ```bash
 go build ./cmd/complytime-mcp/
@@ -140,7 +140,7 @@ go build ./cmd/complytime-mcp/
 
 Expected: successful build.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A
@@ -154,19 +154,19 @@ git commit -S -s -m "refactor: rename studio-mcp to complytime-mcp, update resou
 **Files:**
 - Modify: `cmd/complytime-mcp/main.go`
 
-- [ ] **Step 1: Remove the SaveDraftAuditLogInput and SaveDraftAuditLogOutput types**
+- [x] **Step 1: Remove the SaveDraftAuditLogInput and SaveDraftAuditLogOutput types**
 
 Delete the `SaveDraftAuditLogInput` and `SaveDraftAuditLogOutput` structs.
 
-- [ ] **Step 2: Remove the save_draft_audit_log tool registration**
+- [x] **Step 2: Remove the save_draft_audit_log tool registration**
 
 In `registerTools()`, remove the `mcp.AddTool` block for `save_draft_audit_log`.
 
-- [ ] **Step 3: Remove the `post` method from gatewayClient if no other tool uses it**
+- [x] **Step 3: Remove the `post` method from gatewayClient if no other tool uses it**
 
 Check if any remaining tool uses `gw.post`. If not, remove the `post` method and the `strings` import if unused.
 
-- [ ] **Step 4: Build and verify**
+- [x] **Step 4: Build and verify**
 
 ```bash
 go build ./cmd/complytime-mcp/
@@ -174,7 +174,7 @@ go build ./cmd/complytime-mcp/
 
 Expected: successful build. No unused import errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add cmd/complytime-mcp/main.go
@@ -194,13 +194,13 @@ git commit -S -s -m "refactor: remove save_draft_audit_log from complytime-mcp, 
 - Create: `deploy/helm/complytime-core/templates/nats.yaml`
 - Create: `deploy/helm/complytime-core/templates/complytime-mcp.yaml`
 
-- [ ] **Step 1: Create directory structure**
+- [x] **Step 1: Create directory structure**
 
 ```bash
 mkdir -p deploy/helm/complytime-core/templates
 ```
 
-- [ ] **Step 2: Create Chart.yaml**
+- [x] **Step 2: Create Chart.yaml**
 
 ```yaml
 # SPDX-License-Identifier: Apache-2.0
@@ -211,7 +211,7 @@ version: 0.1.0
 appVersion: "0.3.0"
 ```
 
-- [ ] **Step 3: Create values.yaml**
+- [x] **Step 3: Create values.yaml**
 
 ```yaml
 # SPDX-License-Identifier: Apache-2.0
@@ -274,7 +274,7 @@ mcpServer:
       cpu: "100m"
 ```
 
-- [ ] **Step 4: Create `_helpers.tpl`**
+- [x] **Step 4: Create `_helpers.tpl`**
 
 ```yaml
 {{/*
@@ -314,7 +314,7 @@ app.kubernetes.io/instance: {{ .root.Release.Name }}
 {{- end }}
 ```
 
-- [ ] **Step 5: Create gateway.yaml**
+- [x] **Step 5: Create gateway.yaml**
 
 Adapted from `studio-deploy/charts/complytime/templates/gateway.yaml` lines 1-231.
 Key changes: resource names `core-gateway` instead of `studio-gateway`, label helpers use `core.*`, conditionally set `ENABLE_PROGRAMS`, remove OAuth2 proxy sidecar (standalone core has no auth layer), remove blob storage env vars.
@@ -398,7 +398,7 @@ spec:
       protocol: TCP
 ```
 
-- [ ] **Step 6: Create postgres.yaml**
+- [x] **Step 6: Create postgres.yaml**
 
 Adapted from `studio-deploy/charts/complytime/templates/postgres.yaml` lines 1-109.
 Key changes: resource names `core-postgres`, label helpers use `core.*`, database and reader role names from `values.yaml`.
@@ -508,7 +508,7 @@ spec:
 {{- end }}
 ```
 
-- [ ] **Step 7: Create nats.yaml**
+- [x] **Step 7: Create nats.yaml**
 
 Adapted from `studio-deploy/charts/complytime/templates/nats.yaml` lines 1-61.
 Key changes: resource names `core-nats`, label helpers use `core.*`.
@@ -575,7 +575,7 @@ spec:
 {{- end }}
 ```
 
-- [ ] **Step 8: Create complytime-mcp.yaml**
+- [x] **Step 8: Create complytime-mcp.yaml**
 
 Standard Deployment + Service. The MCP server proxies to the gateway via REST — it uses `GATEWAY_URL`, not `POSTGRES_URL`.
 
@@ -631,7 +631,7 @@ spec:
 {{- end }}
 ```
 
-- [ ] **Step 9: Test render**
+- [x] **Step 9: Test render**
 
 ```bash
 helm template complytime-core deploy/helm/complytime-core/
@@ -639,7 +639,7 @@ helm template complytime-core deploy/helm/complytime-core/
 
 Expected: valid YAML output for gateway, postgres, nats, complytime-mcp Deployments/Services. No errors.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add deploy/helm/
@@ -653,7 +653,7 @@ git commit -S -s -m "feat: add standalone Helm chart for complytime-core"
 **Files:**
 - Create: `deploy/compose/docker-compose.yaml`
 
-- [ ] **Step 1: Create standalone Compose file**
+- [x] **Step 1: Create standalone Compose file**
 
 ```yaml
 services:
@@ -701,7 +701,7 @@ volumes:
   pgdata:
 ```
 
-- [ ] **Step 2: Create initdb script**
+- [x] **Step 2: Create initdb script**
 
 ```bash
 mkdir -p deploy/compose/initdb
@@ -720,7 +720,7 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO core_reader;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO core_reader;
 ```
 
-- [ ] **Step 3: Test Compose**
+- [x] **Step 3: Test Compose**
 
 ```bash
 cd deploy/compose
@@ -729,7 +729,7 @@ docker compose config
 
 Expected: valid config, no errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add deploy/compose/
@@ -745,19 +745,19 @@ git commit -S -s -m "feat: add standalone Docker Compose for complytime-core"
 - Create: `docs/decisions/evidence-quality-boundary.md`
 - Modify: `docs/decisions/README.md`
 
-- [ ] **Step 1: Write ADR #0032 — Architecture Extraction**
+- [x] **Step 1: Write ADR #0032 — Architecture Extraction**
 
 Document the three-domain split (core, studio, agent), repo mapping, data ownership, and serving contracts. Reference the spec at `studio-deploy/docs/superpowers/specs/2026-05-15-architecture-extraction-design.md`.
 
-- [ ] **Step 2: Write ADR #0033 — Evidence Quality Boundary**
+- [x] **Step 2: Write ADR #0033 — Evidence Quality Boundary**
 
 Document the certifier scope (per-record, policy-aware) vs workbench scope (cumulative, cross-record). List the new certifiers (policy freshness, relevance) as planned additions.
 
-- [ ] **Step 3: Update ADR index**
+- [x] **Step 3: Update ADR index**
 
 Add #0032 and #0033 to `docs/decisions/README.md`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/decisions/
@@ -766,45 +766,28 @@ git commit -S -s -m "docs: ADR #0032 architecture extraction, #0033 evidence qua
 
 ---
 
-### Task 8: Update studio-deploy References
+### Task 8: Update studio-deploy references (completed)
 
-**Files:**
-- Modify: `/home/jpower/Documents/upstream-repos/studio-deploy/docker-compose.yaml`
-- Modify: `/home/jpower/Documents/upstream-repos/studio-deploy/Makefile`
-- Modify: `/home/jpower/Documents/upstream-repos/studio-deploy/charts/complytime/templates/mcp-studio.yaml`
-- Modify: `/home/jpower/Documents/upstream-repos/studio-deploy/charts/complytime/values.yaml`
+**Scope:** Changes live in `studio-deploy` (`docker-compose.yaml`, `Makefile`, Helm under `charts/complytime/`).
 
-This task runs in the `studio-deploy` repo, not the core repo.
+**Land state:**
+- Gateway, `gemara-mcp`, and **core** MCP build from **`complytime-core`** (`../complytime-core`; image/binary **`complytime-mcp`**). Core MCP proxies the gateway REST API; ingestion is **`POST /api/ingest`** (obsolete **`/api/evidence/`**-scoped ingest URLs retired).
+- Workbench + agent build from **`complytime-studio`** (`../complytime-studio`; former **`complytime-agents`**), org **`github.com/complytime-labs/complytime-studio`**.
+- Workbench MCP for programs/drafts stays the **`studio-mcp`** service/protocol on the workbench side; do not confuse with **`complytime-mcp`** on core.
 
-- [ ] **Step 1: Update docker-compose.yaml build contexts and service names**
+- [x] **Step 1: docker-compose build contexts and service names**
 
-In `docker-compose.yaml`, apply these changes:
+Applied: core repo path `complytime-core`, workbench path `complytime-studio`, core MCP service/image `complytime-mcp`.
 
-- Line 8: change `complytime-agents` to `complytime-studio` in comment
-- Line 13: change `../complytime-studio` to `../complytime-core` (gateway context)
-- Line 29: change `../complytime-agents` to `../complytime-studio` (workbench context)
-- Line 71: change `../complytime-studio` to `../complytime-core` (gemara-mcp context)
-- Lines 88-95: rename `studio-mcp` service to `complytime-mcp`, change build context from `../complytime-studio` to `../complytime-core`, change dockerfile from `Dockerfile.studio-mcp` to `Dockerfile.complytime-mcp`
-- Line 37: update `STUDIO_MCP_URL` to `http://complytime-mcp:3000/mcp`
-- Line 44: update workbench depends_on from `studio-mcp` to `complytime-mcp`
+- [x] **Step 2: Makefile**
 
-- [ ] **Step 2: Update Makefile**
+Applied: `STUDIO_REPO` / image build targets use `complytime-core` and `Dockerfile.complytime-mcp` / `complytime-mcp:latest` as appropriate; workbench repo variable points at `complytime-studio`.
 
-In `Makefile`, apply these changes:
+- [x] **Step 3: Helm**
 
-- Line 9: `STUDIO_REPO := ../complytime-core`
-- Line 11: `AGENTS_REPO := ../complytime-studio`
-- Line 14: change `studio-mcp` to `complytime-mcp` in `IMAGES` list
-- Line 65: change `Dockerfile.studio-mcp` to `Dockerfile.complytime-mcp`, change tag from `studio-mcp:latest` to `complytime-mcp:latest`
+Applied: templates and values reference `complytime-mcp` for the core MCP deployment; `GATEWAY_URL` (or equivalent) wires MCP to the gateway.
 
-- [ ] **Step 3: Update Helm mcp-studio.yaml template**
-
-In `charts/complytime/templates/mcp-studio.yaml`:
-
-- Update the MCPServer name, image reference, and GATEWAY_URL env to match the new `complytime-mcp` naming.
-- The template currently uses `POSTGRES_URL` (line 22) but the MCP server uses `GATEWAY_URL`. Fix this: replace `POSTGRES_URL` env with `GATEWAY_URL: "http://studio-gateway:8080"`.
-
-- [ ] **Step 4: Verify Compose config**
+- [x] **Step 4: Verify Compose config**
 
 ```bash
 cd /home/jpower/Documents/upstream-repos/studio-deploy
@@ -813,7 +796,7 @@ docker compose config --quiet
 
 Expected: no errors.
 
-- [ ] **Step 5: Verify Helm renders**
+- [x] **Step 5: Verify Helm renders**
 
 ```bash
 helm template studio charts/complytime -f charts/complytime/values-dev.yaml
@@ -821,9 +804,9 @@ helm template studio charts/complytime -f charts/complytime/values-dev.yaml
 
 Expected: valid YAML, no errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A
-git commit -S -s -m "refactor: update references from complytime-studio to complytime-core, studio-mcp to complytime-mcp"
+git commit -S -s -m "refactor: align studio-deploy with complytime-core, complytime-studio, complytime-mcp"
 ```
