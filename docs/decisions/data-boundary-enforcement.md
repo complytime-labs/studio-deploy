@@ -32,11 +32,25 @@ ADR 0032 established the core/workbench split and the rule "no service writes to
 
 ### Migration
 
-| Item | From | To | Method |
-|:---|:---|:---|:---|
-| `GET /api/posture` | Gateway | Workbench (`/workbench/posture`) | Workbench calls `GET /api/evidence`, `GET /api/certifications`, aggregates in Python |
-| `GET /api/risks/severity` | Gateway | Workbench (`/workbench/risks/severity`) | Workbench calls `GET /api/risks`, `GET /api/control-threats`, derives severity |
-| `public.mapping_documents` read | Workbench direct SQL | `GET /api/catalogs` | Replace `asyncpg` query with `httpx` call to gateway |
+Migration proceeds in two phases to avoid breaking the data path.
+
+**Phase A (current):** Routing redirect. UI calls workbench, workbench proxies to gateway.
+
+| Item | Status | Current path |
+|:---|:---|:---|
+| `GET /workbench/posture` | Done | Proxies to `GET /api/posture` on gateway |
+| `GET /workbench/risks/severity` | Done | Proxies to `GET /api/risks/severity` on gateway |
+| `public.mapping_documents` read | Done | Replaced with `GET /api/catalogs` via `httpx` |
+
+Gateway retains `/api/posture` and `/api/risks/severity` as internal endpoints consumed only by the workbench. Not advertised in OpenAPI or documented for external consumers.
+
+**Phase B (target):** Full aggregation. Workbench implements its own logic.
+
+| Item | Method |
+|:---|:---|
+| `GET /workbench/posture` | Workbench calls `GET /api/evidence`, `GET /api/certifications`, aggregates in Python |
+| `GET /workbench/risks/severity` | Workbench calls `GET /api/risks`, `GET /api/control-threats`, derives severity |
+| Gateway posture/risk-severity | Remove from gateway once Phase B is complete |
 
 ### Retained in Core
 
