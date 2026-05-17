@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-05-16
+**Updated:** 2026-05-16 (standalone proxy per ADR 0040)
 
 ## Context
 
@@ -15,17 +16,29 @@ The question is: how do we enforce that only the proxy can reach the gateway?
 
 Two mechanisms, no shared secrets.
 
-### 1. Sidecar + localhost binding
+### 1. Standalone proxy + NetworkPolicy isolation
 
-OAuth2 Proxy runs as a sidecar container in the same pod as the gateway. The gateway binds to `127.0.0.1:8080` — only the co-located proxy can reach it. Header spoofing is impossible without pod compromise.
+OAuth2 Proxy runs as a standalone Deployment + Service (ADR 0040). Nginx routes all user-facing traffic to the proxy on port 4180. The proxy routes authenticated requests to backends by path prefix:
 
-NetworkPolicies enforce default-deny on the gateway port from external pods. Only the UI pod can reach the OAuth2 Proxy port (4180).
+| Path prefix | Backend |
+|:--|:--|
+| `/api/*`, `/auth/*` | Gateway (:8080) |
+| `/workbench/*` | Workbench (:8090) |
+| `/oauth2/*` | Self (login/callback) |
+
+NetworkPolicies restrict which pods can reach each backend:
 
 | Hop | Enforced by |
 |:--|:--|
 | Client → OAuth2 Proxy (4180) | OIDC token validation |
-| OAuth2 Proxy → Gateway (127.0.0.1:8080) | Localhost binding (network topology) |
-| Pod → Gateway (8080) direct | Blocked by NetworkPolicy + localhost bind |
+| OAuth2 Proxy → Gateway (8080) | NetworkPolicy (only proxy pod allowed) |
+| OAuth2 Proxy → Workbench (8090) | NetworkPolicy (only proxy pod allowed) |
+| Internal pod → Gateway (8080) direct | NetworkPolicy (workbench pod allowed) |
+| External pod → Gateway (8080) direct | Blocked by NetworkPolicy |
+
+Internal services (workbench, agent tools) call the gateway directly on port 8080 with `X-Forwarded-Email` headers. NetworkPolicy restricts this to labeled pods only.
+
+> **Note:** The direct gateway path trusts `X-Forwarded-Email` from in-cluster callers. Acceptable for single-tenant Kind deployments. For multi-user deployments, adopt [OBO token flow](agent-obo-flow.md) to enforce per-user RBAC on internal calls.
 
 ### 2. JWT validation for headless clients
 
@@ -44,12 +57,12 @@ A shared static secret between proxy and gateway was considered and rejected:
 
 - Requires manual rotation and pod restarts
 - Single secret compromise grants full identity spoofing
-- Redundant when sidecar + localhost binding already guarantees source
-- Does not provide per-request proof (any holder of the secret can forge requests indefinitely)
+- Redundant when NetworkPolicy already restricts source
+- Does not provide per-request proof
 
 ### Development (no proxy)
 
-In dev mode (`auth.enabled: false` in Helm values), the gateway accepts `X-Forwarded-Email` from any caller. This allows:
+In dev mode (`auth.oauth2Proxy.enabled: false` in Helm values), the gateway accepts `X-Forwarded-Email` from any caller. This allows:
 
 - `curl -H "X-Forwarded-Email: dev@example.com"` for manual testing
 - `test-headless.sh` integration tests
@@ -57,20 +70,18 @@ In dev mode (`auth.enabled: false` in Helm values), the gateway accepts `X-Forwa
 
 Intentional and acceptable — dev cluster is local (Kind) with no external ingress.
 
-### Internal services (workbench)
-
-The workbench is not externally exposed. It sits behind the UI's Nginx proxy, which is behind the gateway's OAuth2 Proxy. NetworkPolicy restricts workbench ingress to the UI pod only. No additional auth layer is needed for internal pod-to-pod communication in this topology.
-
 ## Consequences
 
-- Gateway code never parses OIDC tokens directly for browser flows — identity is a header value from the trusted sidecar.
+- Gateway code never parses OIDC tokens directly for browser flows — identity is a header value from the trusted proxy.
 - JWT validation adds JWKS endpoint dependency but eliminates all shared secrets.
-- No secret rotation burden — localhost binding is static, JWT keys rotate via OIDC provider.
+- No secret rotation burden — NetworkPolicy is static, JWT keys rotate via OIDC provider.
 - Misconfigured NetworkPolicies degrade the model — policy correctness remains critical.
-- Dev mode is explicitly insecure. Production deployments must enable `auth.enabled: true`.
+- Dev mode is explicitly insecure. Production deployments must enable `auth.oauth2Proxy.enabled: true`.
+- Standalone proxy eliminates the sidecar hairpin where workbench traffic looped through the gateway.
 
 ## Related
 
+- [Standalone OAuth2 Proxy](standalone-auth-proxy.md) — deployment topology change
 - [Kind + Helm as Sole Deployment Path](kind-only-deployment.md) — deployment topology
 - ADR #0027 (complytime-core) — JWT bearer authentication for headless access
 - [Authorization Model](authorization-model.md) — RBAC after identity is established

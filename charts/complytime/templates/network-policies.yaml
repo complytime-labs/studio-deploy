@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # NetworkPolicies for Helm-managed studio pods.
-# Scope: gateway, registry, clickhouse, postgres (pods with part-of: complytime-studio).
+# Scope: oauth2-proxy, gateway, workbench, registry, clickhouse, postgres, nats.
 # Out of scope: agents and MCP servers — managed by kagent/kmcp with their own
 # label scheme (part-of: kagent / managed-by: kmcp). Configure those at the
 # kagent level if needed.
@@ -25,11 +25,37 @@ spec:
   policyTypes:
     - Ingress
 
+{{- if .Values.auth.oauth2Proxy.enabled }}
 ---
-# Gateway public port: accept ingress from anywhere on the user-facing port.
-# When OAuth2 Proxy is enabled, external traffic enters via port 4180 (the proxy);
-# the app on 8080 is bound to 127.0.0.1 and unreachable from outside the pod.
-# When proxy is disabled, traffic hits the app directly on 8080.
+# OAuth2 Proxy: accept ingress from the UI (nginx) on port 4180.
+# All user-facing traffic enters through the proxy.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: studio-allow-oauth2-proxy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "studio.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: oauth2-proxy
+      app.kubernetes.io/part-of: complytime-studio
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-ui
+              app.kubernetes.io/part-of: complytime-studio
+      ports:
+        - port: 4180
+          protocol: TCP
+{{- end }}
+
+---
+# Gateway: accept ingress on port 8080.
+# When auth is enabled: only from oauth2-proxy and trusted internal pods.
+# When auth is disabled: from any source (dev mode).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -43,12 +69,21 @@ spec:
       app.kubernetes.io/name: gateway
       app.kubernetes.io/part-of: complytime-studio
   ingress:
-    - ports:
+    - from:
         {{- if .Values.auth.oauth2Proxy.enabled }}
-        - port: 4180
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: oauth2-proxy
+              app.kubernetes.io/part-of: complytime-studio
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-workbench
+              app.kubernetes.io/part-of: complytime-studio
         {{- else }}
-        - port: 8080
+        - podSelector: {}
         {{- end }}
+      ports:
+        - port: 8080
           protocol: TCP
 
 ---
@@ -77,7 +112,7 @@ spec:
 
 {{- if .Values.registry.enabled }}
 ---
-# Registry: accept ingress from namespace peers (gateway, seed job, oras-mcp).
+# Registry: accept ingress from namespace peers (gateway, seed job).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -121,7 +156,9 @@ spec:
 
 {{- if .Values.workbench.enabled }}
 ---
-# Workbench: accept ingress from studio-ui on port 8090.
+# Workbench: accept ingress on port 8090.
+# When auth is enabled: only from oauth2-proxy (direct routing).
+# When auth is disabled: from the UI pod (dev mode).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -136,10 +173,17 @@ spec:
       app.kubernetes.io/part-of: complytime-studio
   ingress:
     - from:
+        {{- if .Values.auth.oauth2Proxy.enabled }}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: oauth2-proxy
+              app.kubernetes.io/part-of: complytime-studio
+        {{- else }}
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: studio-ui
               app.kubernetes.io/part-of: complytime-studio
+        {{- end }}
       ports:
         - port: 8090
           protocol: TCP
@@ -147,7 +191,7 @@ spec:
 
 {{- if .Values.clickhouse.enabled }}
 ---
-# ClickHouse: accept ingress from namespace peers (clickhouse-mcp, ingest).
+# ClickHouse: accept ingress from namespace peers.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -172,7 +216,7 @@ spec:
 
 {{- if .Values.postgres.enabled }}
 ---
-# PostgreSQL: accept ingress from gateway and studio-mcp pods on port 5432.
+# PostgreSQL: accept ingress from gateway and workbench on port 5432.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -195,9 +239,6 @@ spec:
             matchLabels:
               app.kubernetes.io/name: studio-workbench
               app.kubernetes.io/part-of: complytime-studio
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: studio-mcp
       ports:
         - port: 5432
           protocol: TCP
@@ -205,8 +246,7 @@ spec:
 
 {{- if .Values.nats.enabled }}
 ---
-# NATS: accept ingress from the gateway pod on port 4222.
-# In production, a service mesh provides mTLS; this policy is defense-in-depth.
+# NATS: accept ingress from gateway and workbench on port 4222.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

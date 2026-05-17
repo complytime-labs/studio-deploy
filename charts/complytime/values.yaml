@@ -35,12 +35,12 @@ blobStorage:
   accessKey: ""
   secretKey: ""
 
-# -- Authentication via OAuth2 Proxy sidecar.
+# -- Authentication via standalone OAuth2 Proxy (ADR 0040).
+# Deployed as a separate pod/service that routes to backends by path prefix.
 # Handles OIDC discovery, PKCE, JWKS, token refresh, and session cookies.
 # Supports any OIDC provider (Keycloak, Okta, Azure AD, Google, Dex, Hydra).
-# When disabled (dev mode), the sidecar is omitted. The gateway middleware
-# still returns 401 for /api/* requests without X-Forwarded-Email (OAuth2 Proxy
-# injects this header after OIDC/JWT validation).
+# When disabled (dev mode), the proxy is not created. The gateway middleware
+# still returns 401 for /api/* requests without X-Forwarded-Email.
 auth:
   oauth2Proxy:
     enabled: true

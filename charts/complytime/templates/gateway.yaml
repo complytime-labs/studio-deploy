@@ -61,8 +61,6 @@ spec:
               value: "studio-registry:{{ .Values.registry.service.port }}"
             {{- end }}
             {{- if .Values.auth.oauth2Proxy.enabled }}
-            - name: LISTEN_HOST
-              value: "127.0.0.1"
             - name: OAUTH2_PROXY_ENABLED
               value: "true"
             {{- else }}
@@ -108,93 +106,6 @@ spec:
             limits:
               memory: "256Mi"
               cpu: "500m"
-        {{- if .Values.auth.oauth2Proxy.enabled }}
-        - name: oauth2-proxy
-          image: "{{ .Values.auth.oauth2Proxy.image.repository }}:{{ .Values.auth.oauth2Proxy.image.tag }}"
-          args:
-            - --provider={{ .Values.auth.oauth2Proxy.provider }}
-            - --oidc-issuer-url={{ .Values.auth.oauth2Proxy.issuerUrl }}
-            - --client-id={{ .Values.auth.oauth2Proxy.clientId }}
-            - --client-secret-file=/etc/oauth2-proxy/client-secret
-            - --redirect-url={{ .Values.auth.oauth2Proxy.callbackUrl }}
-            - --upstream=http://localhost:8080
-            - --http-address=0.0.0.0:4180
-            - --cookie-secure={{ .Values.auth.oauth2Proxy.cookieSecure }}
-            - --set-xauthrequest=true
-            # Required for JWT bearer auth (ADR #0027) — gateway validates
-            # access tokens for headless/service clients.
-            - --pass-access-token=true
-            - --code-challenge-method=S256
-            - --skip-provider-button=true
-            - --email-domain={{ join "," .Values.auth.oauth2Proxy.emailDomains }}
-            - --scope={{ .Values.auth.oauth2Proxy.scopes }}
-            - --skip-auth-route=GET=/healthz
-            - --skip-auth-route=GET=/auth/me
-            - --skip-auth-route=GET=/auth/logged-out
-            - --skip-auth-route=GET=/api/config
-            {{- if .Values.auth.oauth2Proxy.skipJwtBearerTokens }}
-            - --skip-jwt-bearer-tokens=true
-            - --bearer-token-login-fallback={{ ternary "true" "false" (ne .Values.auth.oauth2Proxy.bearerTokenLoginFallback false) }}
-            {{- range .Values.auth.oauth2Proxy.extraAudiences }}
-            - --oidc-extra-audience={{ . }}
-            {{- end }}
-            {{- range .Values.auth.oauth2Proxy.extraJwtIssuers }}
-            - --extra-jwt-issuers={{ . }}
-            {{- end }}
-            {{- end }}
-            {{- if .Values.auth.oauth2Proxy.forceJsonErrors }}
-            - --force-json-errors=true
-            {{- end }}
-            {{- range .Values.auth.oauth2Proxy.allowedGroups }}
-            - --allowed-group={{ . }}
-            {{- end }}
-          env:
-            - name: OAUTH2_PROXY_COOKIE_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.auth.cookieSecretName | default "studio-cookie-secret" }}
-                  key: cookie-secret
-          ports:
-            - name: proxy
-              containerPort: 4180
-              protocol: TCP
-          securityContext:
-            readOnlyRootFilesystem: true
-            allowPrivilegeEscalation: false
-            runAsNonRoot: true
-            capabilities:
-              drop: ["ALL"]
-          livenessProbe:
-            httpGet:
-              path: /ping
-              port: 4180
-            periodSeconds: 30
-          readinessProbe:
-            httpGet:
-              path: /ping
-              port: 4180
-            periodSeconds: 10
-          volumeMounts:
-            - name: oauth2-proxy-secret
-              mountPath: /etc/oauth2-proxy
-              readOnly: true
-          resources:
-            requests:
-              memory: "32Mi"
-              cpu: "25m"
-            limits:
-              memory: "128Mi"
-              cpu: "100m"
-        {{- end }}
-      {{- if .Values.auth.oauth2Proxy.enabled }}
-      volumes:
-        - name: oauth2-proxy-secret
-          secret:
-            secretName: {{ .Values.auth.oauth2Proxy.secretName }}
-            items:
-              - key: {{ .Values.auth.oauth2Proxy.secretKey }}
-                path: client-secret
-      {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -211,9 +122,5 @@ spec:
   ports:
     - name: http
       port: 8080
-      {{- if .Values.auth.oauth2Proxy.enabled }}
-      targetPort: 4180
-      {{- else }}
       targetPort: 8080
-      {{- end }}
       protocol: TCP

@@ -37,16 +37,18 @@ spec:
           env:
             - name: WORKBENCH_PORT
               value: "8090"
-            {{- if .Values.mcpServers.gemara.enabled }}
+            {{- if and .Values.mcpServers.gemara.enabled .Values.kagent.crdsAvailable }}
             - name: GEMARA_MCP_URL
               value: "http://studio-gemara-mcp:3000/mcp"
             {{- end }}
-            {{- if .Values.mcpServers.oras.enabled }}
+            {{- if and .Values.mcpServers.oras.enabled .Values.kagent.crdsAvailable }}
             - name: ORAS_MCP_URL
               value: "http://studio-oras-mcp:3000/mcp"
             {{- end }}
+            {{- if and .Values.mcpServers.studio.enabled .Values.kagent.crdsAvailable }}
             - name: STUDIO_MCP_URL
-              value: "http://studio-mcp:3000/mcp"
+              value: "http://complytime-mcp:3000/mcp"
+            {{- end }}
             {{- if .Values.nats.enabled }}
             - name: NATS_URL
               value: "nats://studio-nats:4222"
@@ -67,6 +69,20 @@ spec:
               value: {{ .Values.model.provider | quote }}
             - name: MODEL_NAME
               value: {{ .Values.model.name | quote }}
+            {{- if .Values.model.vertexAI.projectID }}
+            - name: GOOGLE_CLOUD_PROJECT
+              value: {{ .Values.model.vertexAI.projectID | quote }}
+            - name: GOOGLE_CLOUD_LOCATION
+              value: {{ .Values.model.vertexAI.location | default "us-east5" | quote }}
+            {{- end }}
+            {{- if .Values.model.vertexAI.credentialsSecret }}
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/run/secrets/gcp/application_default_credentials.json
+            {{- end }}
+            - name: GATEWAY_URL
+              value: "http://studio-gateway:8080"
+            - name: KAGENT_URL
+              value: {{ .Values.workbench.kagentUrl | default "http://kagent-controller.kagent.svc.cluster.local:8083" | quote }}
             - name: AGENT_DIRECTORY
               value: {{ .Values.workbench.agentDirectory | default "[]" | quote }}
           startupProbe:
@@ -85,6 +101,12 @@ spec:
               path: /workbench/agents
               port: workbench
             periodSeconds: 30
+          {{- if .Values.model.vertexAI.credentialsSecret }}
+          volumeMounts:
+            - name: gcp-credentials
+              mountPath: /var/run/secrets/gcp
+              readOnly: true
+          {{- end }}
           resources:
             requests:
               memory: "256Mi"
@@ -92,6 +114,12 @@ spec:
             limits:
               memory: "1Gi"
               cpu: "1000m"
+      {{- if .Values.model.vertexAI.credentialsSecret }}
+      volumes:
+        - name: gcp-credentials
+          secret:
+            secretName: {{ .Values.model.vertexAI.credentialsSecret }}
+      {{- end }}
 ---
 apiVersion: v1
 kind: Service

@@ -31,10 +31,13 @@ spec:
           env:
             - name: PLATFORM_URL
               value: {{ .Values.studio.platformUrl | default "" | quote }}
+            {{- if .Values.auth.oauth2Proxy.enabled }}
+            - name: GATEWAY_UPSTREAM
+              value: {{ .Values.studio.gatewayUpstream | default (printf "studio-oauth2-proxy.%s.svc.cluster.local:4180" .Release.Namespace) | quote }}
+            {{- else }}
             - name: GATEWAY_UPSTREAM
               value: {{ .Values.studio.gatewayUpstream | default (printf "studio-gateway.%s.svc.cluster.local:8080" .Release.Namespace) | quote }}
-            - name: WORKBENCH_UPSTREAM
-              value: {{ .Values.studio.workbenchUpstream | default (printf "studio-workbench.%s.svc.cluster.local:8090" .Release.Namespace) | quote }}
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /
