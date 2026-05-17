@@ -45,10 +45,6 @@ spec:
         - name: GEMARA_MCP_URL
           value: "http://studio-gemara-mcp:3000/mcp"
         {{- end }}
-        {{- if .Values.postgres.enabled }}
-        - name: STUDIO_MCP_URL
-          value: "http://studio-mcp:3000/mcp"
-        {{- end }}
         {{- if .Values.model.vertexAI.credentialsSecret }}
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /var/secrets/gcp/application_default_credentials.json

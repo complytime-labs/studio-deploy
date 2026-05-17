@@ -30,6 +30,11 @@ clickhouse:
     password: complytime-dev
     readerPassword: complytime-reader-dev
 
+studio:
+  service:
+    type: NodePort
+    nodePort: 30080
+
 registry:
   enabled: true
   service:

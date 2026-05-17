@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # MCP servers deployed via kagent MCPServer CRDs.
-# oras-mcp uses stdio — OBO handled via gateway proxy (/api/registry/*).
-# Platform servers (gemara, postgres, clickhouse) use stdio with static credentials.
+# Only gemara-mcp is retained — provides unique CUE validation/migration.
+# complytime-mcp and oras-mcp removed per ADR 0041.
 # Requires kagent CRDs installed — gated by kagent.crdsAvailable.
 {{- if .Values.kagent.crdsAvailable }}
 {{- if .Values.mcpServers.gemara.enabled }}
@@ -20,25 +20,6 @@ spec:
   deployment:
     image: {{ .Values.mcpServers.gemara.image }}
     cmd: /bin/gemara-mcp
-    args:
-      - serve
-    port: 3000
-{{- end }}
-{{- if .Values.mcpServers.oras.enabled }}
----
-apiVersion: kagent.dev/v1alpha1
-kind: MCPServer
-metadata:
-  name: studio-oras-mcp
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "studio.labels" . | nindent 4 }}
-spec:
-  transportType: stdio
-  stdioTransport: {}
-  deployment:
-    image: {{ .Values.mcpServers.oras.image }}
-    cmd: /bin/oras-mcp
     args:
       - serve
     port: 3000

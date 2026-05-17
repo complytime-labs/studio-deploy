@@ -1,6 +1,6 @@
 # 0041 — Drop MCP Data Proxies, Use LangChain Tools
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-05-16
 
 ## Context

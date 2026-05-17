@@ -41,14 +41,6 @@ spec:
             - name: GEMARA_MCP_URL
               value: "http://studio-gemara-mcp:3000/mcp"
             {{- end }}
-            {{- if and .Values.mcpServers.oras.enabled .Values.kagent.crdsAvailable }}
-            - name: ORAS_MCP_URL
-              value: "http://studio-oras-mcp:3000/mcp"
-            {{- end }}
-            {{- if and .Values.mcpServers.studio.enabled .Values.kagent.crdsAvailable }}
-            - name: STUDIO_MCP_URL
-              value: "http://complytime-mcp:3000/mcp"
-            {{- end }}
             {{- if .Values.nats.enabled }}
             - name: NATS_URL
               value: "nats://studio-nats:4222"

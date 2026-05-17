@@ -175,32 +175,13 @@ model:
     # Required when running outside GKE (e.g. kind) without workload identity.
     credentialsSecret: studio-gcp-credentials
 
-# -- MCP servers deployed via kagent MCPServer CRDs.
-# Platform servers (gemara, oras, clickhouse) use stdio with static credentials.
-#
-# To add a new MCP server:
-#   1. Add an entry here with enabled + image
-#   2. Create a Helm template in templates/ for the MCPServer CRD
-#   3. Add a matching entry in the complytime-agents repo agent.yaml mcp block
-#   4. For user-scoped auth, set allowedHeaders: [Authorization] on the agent mcp ref
-#
-# Transport modes:
-#   stdio  — static credentials, agent and MCP server share a pod (sidecar)
-#   http   — per-request auth via Authorization header propagation (OBO flow)
+# -- MCP servers deployed via kagent MCPServer CRDs (ADR 0041).
+# Only gemara-mcp retained — provides unique CUE validation/migration.
+# complytime-mcp and oras-mcp removed (pure proxies with no unique logic).
 mcpServers:
   gemara:
     enabled: true
     image: ghcr.io/gemaraproj/gemara-mcp:0.3.0
-  oras:
-    enabled: true
-    image: ghcr.io/oras-project/oras-mcp:v0.2.1
-  studio:
-    enabled: true
-    image:
-      repository: complytime-mcp
-      tag: latest
-  # github-mcp removed — not required for audit dashboard workflow.
-  # Re-enable if code search or repository access is needed.
 
 # -- ClickHouse. Disabled by default. Enable for production deployments
 # where evidence volume exceeds PostgreSQL capacity. When enabled, the
