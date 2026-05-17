@@ -34,23 +34,17 @@ ADR 0032 established the core/workbench split and the rule "no service writes to
 
 Migration proceeds in two phases to avoid breaking the data path.
 
-**Phase A (current):** Routing redirect. UI calls workbench, workbench proxies to gateway.
+**Phase A (complete):** Routing redirect. UI calls workbench, workbench proxied to gateway.
 
-| Item | Status | Current path |
+**Phase B (complete):** Native aggregation. Workbench implements its own logic using record-level gateway APIs.
+
+| Item | Status | Method |
 |:---|:---|:---|
-| `GET /workbench/posture` | Done | Proxies to `GET /api/posture` on gateway |
-| `GET /workbench/risks/severity` | Done | Proxies to `GET /api/risks/severity` on gateway |
+| `GET /workbench/posture` | Done | Calls `GET /api/policies` + `GET /api/evidence`, aggregates in Python |
+| `GET /workbench/risks/severity` | Done | Calls `GET /api/risks` + `GET /api/risk-threats` + `GET /api/control-threats`, derives severity |
 | `public.mapping_documents` read | Done | Replaced with `GET /api/catalogs` via `httpx` |
-
-Gateway retains `/api/posture` and `/api/risks/severity` as internal endpoints consumed only by the workbench. Not advertised in OpenAPI or documented for external consumers.
-
-**Phase B (target):** Full aggregation. Workbench implements its own logic.
-
-| Item | Method |
-|:---|:---|
-| `GET /workbench/posture` | Workbench calls `GET /api/evidence`, `GET /api/certifications`, aggregates in Python |
-| `GET /workbench/risks/severity` | Workbench calls `GET /api/risks`, `GET /api/control-threats`, derives severity |
-| Gateway posture/risk-severity | Remove from gateway once Phase B is complete |
+| Gateway `/api/posture` | Removed | Cross-record aggregation no longer lives in core |
+| Gateway `/api/risks/severity` | Removed | Cross-record derivation no longer lives in core |
 
 ### Retained in Core
 
