@@ -85,6 +85,10 @@ spec:
       ports:
         - port: 8080
           protocol: TCP
+        {{- if .Values.gateway.grpc.enabled }}
+        - port: {{ .Values.gateway.grpc.port | default 9090 }}
+          protocol: TCP
+        {{- end }}
 
 ---
 # Assistant: accept ingress from gateway only (A2A proxy) on port 8080.

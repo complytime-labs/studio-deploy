@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package complytime.v1;
+
+option go_package = "github.com/complytime-labs/complytime-core/gen/complytime/v1;complytimev1";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+service AuditService {
+  rpc CreateDraftAuditLog(CreateDraftRequest) returns (CreateDraftResponse) {
+    option (google.api.http) = {
+      post: "/api/draft-audit-logs"
+      body: "*"
+    };
+  }
+
+  rpc ListDraftAuditLogs(ListDraftsRequest) returns (ListDraftsResponse) {
+    option (google.api.http) = {
+      get: "/api/draft-audit-logs"
+    };
+  }
+
+  rpc PromoteDraft(PromoteDraftRequest) returns (PromoteDraftResponse) {
+    option (google.api.http) = {
+      post: "/api/draft-audit-logs/{draft_id}/promote"
+    };
+  }
+}
+
+message CreateDraftRequest {
+  string policy_id = 1;
+  string title = 2;
+  string content = 3;
+  string created_by = 4;
+}
+
+message CreateDraftResponse {
+  string id = 1;
+}
+
+message ListDraftsRequest {
+  string policy_id = 1;
+}
+
+message DraftAuditLog {
+  string id = 1;
+  string policy_id = 2;
+  string title = 3;
+  string content = 4;
+  string created_by = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message ListDraftsResponse {
+  repeated DraftAuditLog drafts = 1;
+}
+
+message PromoteDraftRequest {
+  string draft_id = 1;
+}
+
+message PromoteDraftResponse {
+  string audit_log_id = 1;
+}

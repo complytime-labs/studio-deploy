@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package complytime.v1;
+
+option go_package = "github.com/complytime-labs/complytime-core/gen/complytime/v1;complytimev1";
+
+import "google/api/annotations.proto";
+
+service CatalogService {
+  rpc ListCatalogs(ListCatalogsRequest) returns (ListCatalogsResponse) {
+    option (google.api.http) = {
+      get: "/api/catalogs"
+    };
+  }
+}
+
+message ListCatalogsRequest {
+  string type = 1;
+}
+
+message Catalog {
+  string id = 1;
+  string type = 2;
+  string title = 3;
+  string version = 4;
+  bytes content = 5;
+}
+
+message ListCatalogsResponse {
+  repeated Catalog catalogs = 1;
+}

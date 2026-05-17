@@ -19,6 +19,11 @@ gateway:
     repository: studio-gateway
     tag: latest
   autoPersistArtifacts: true
+  # Internal gRPC port for service-to-service communication (ADR 0042).
+  # Disabled by default until proto definitions and gRPC server are implemented.
+  grpc:
+    enabled: false
+    port: 9090
 
 # -- S3-compatible blob storage for evidence attachments.
 # When disabled, the gateway omits BLOB_* env vars.
