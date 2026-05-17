@@ -20,7 +20,7 @@ gateway:
     tag: latest
   autoPersistArtifacts: true
   # Internal gRPC port for service-to-service communication (ADR 0042).
-  # Disabled by default until proto definitions and gRPC server are implemented.
+  # PolicyService implemented. Enable to expose gRPC on port 9090.
   grpc:
     enabled: false
     port: 9090

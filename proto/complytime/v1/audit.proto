@@ -6,42 +6,26 @@ package complytime.v1;
 
 option go_package = "github.com/complytime-labs/complytime-core/gen/complytime/v1;complytimev1";
 
-import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
 
 service AuditService {
-  rpc CreateDraftAuditLog(CreateDraftRequest) returns (CreateDraftResponse) {
-    option (google.api.http) = {
-      post: "/api/draft-audit-logs"
-      body: "*"
-    };
-  }
-
-  rpc ListDraftAuditLogs(ListDraftsRequest) returns (ListDraftsResponse) {
-    option (google.api.http) = {
-      get: "/api/draft-audit-logs"
-    };
-  }
-
-  rpc PromoteDraft(PromoteDraftRequest) returns (PromoteDraftResponse) {
-    option (google.api.http) = {
-      post: "/api/draft-audit-logs/{draft_id}/promote"
-    };
-  }
+  rpc CreateDraftAuditLog(CreateDraftAuditLogRequest) returns (CreateDraftAuditLogResponse);
+  rpc ListDraftAuditLogs(ListDraftAuditLogsRequest) returns (ListDraftAuditLogsResponse);
+  rpc PromoteDraft(PromoteDraftRequest) returns (PromoteDraftResponse);
 }
 
-message CreateDraftRequest {
+message CreateDraftAuditLogRequest {
   string policy_id = 1;
   string title = 2;
   string content = 3;
   string created_by = 4;
 }
 
-message CreateDraftResponse {
+message CreateDraftAuditLogResponse {
   string id = 1;
 }
 
-message ListDraftsRequest {
+message ListDraftAuditLogsRequest {
   string policy_id = 1;
 }
 
@@ -54,7 +38,7 @@ message DraftAuditLog {
   google.protobuf.Timestamp created_at = 6;
 }
 
-message ListDraftsResponse {
+message ListDraftAuditLogsResponse {
   repeated DraftAuditLog drafts = 1;
 }
 

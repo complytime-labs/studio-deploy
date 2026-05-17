@@ -6,14 +6,8 @@ package complytime.v1;
 
 option go_package = "github.com/complytime-labs/complytime-core/gen/complytime/v1;complytimev1";
 
-import "google/api/annotations.proto";
-
 service CatalogService {
-  rpc ListCatalogs(ListCatalogsRequest) returns (ListCatalogsResponse) {
-    option (google.api.http) = {
-      get: "/api/catalogs"
-    };
-  }
+  rpc ListCatalogs(ListCatalogsRequest) returns (ListCatalogsResponse);
 }
 
 message ListCatalogsRequest {

@@ -6,21 +6,11 @@ package complytime.v1;
 
 option go_package = "github.com/complytime-labs/complytime-core/gen/complytime/v1;complytimev1";
 
-import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
 
 service PolicyService {
-  rpc ListPolicies(ListPoliciesRequest) returns (ListPoliciesResponse) {
-    option (google.api.http) = {
-      get: "/api/policies"
-    };
-  }
-
-  rpc GetPolicy(GetPolicyRequest) returns (Policy) {
-    option (google.api.http) = {
-      get: "/api/policies/{policy_id}"
-    };
-  }
+  rpc ListPolicies(ListPoliciesRequest) returns (ListPoliciesResponse);
+  rpc GetPolicy(GetPolicyRequest) returns (GetPolicyResponse);
 }
 
 message ListPoliciesRequest {}
@@ -41,4 +31,8 @@ message ListPoliciesResponse {
 
 message GetPolicyRequest {
   string policy_id = 1;
+}
+
+message GetPolicyResponse {
+  Policy policy = 1;
 }

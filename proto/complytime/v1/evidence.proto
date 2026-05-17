@@ -6,22 +6,12 @@ package complytime.v1;
 
 option go_package = "github.com/complytime-labs/complytime-core/gen/complytime/v1;complytimev1";
 
-import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
 
 service EvidenceService {
-  rpc QueryEvidence(QueryEvidenceRequest) returns (stream EvidenceRecord) {
-    option (google.api.http) = {
-      get: "/api/evidence"
-    };
-  }
-
+  rpc QueryEvidence(QueryEvidenceRequest) returns (stream QueryEvidenceResponse);
   rpc GetCertifications(GetCertificationsRequest)
-      returns (CertificationsResponse) {
-    option (google.api.http) = {
-      get: "/api/certifications"
-    };
-  }
+      returns (GetCertificationsResponse);
 }
 
 message QueryEvidenceRequest {
@@ -43,6 +33,10 @@ message EvidenceRecord {
   google.protobuf.Timestamp expires_at = 9;
 }
 
+message QueryEvidenceResponse {
+  EvidenceRecord record = 1;
+}
+
 message GetCertificationsRequest {
   string policy_id = 1;
   string evidence_id = 2;
@@ -57,6 +51,6 @@ message Certification {
   google.protobuf.Timestamp certified_at = 6;
 }
 
-message CertificationsResponse {
+message GetCertificationsResponse {
   repeated Certification certifications = 1;
 }

@@ -41,6 +41,10 @@ spec:
           value: {{ default .Values.model.name (index $agentModel "name" | default "") | quote }}
         - name: GATEWAY_URL
           value: "http://studio-gateway:8080"
+        {{- if .Values.gateway.grpc.enabled }}
+        - name: GATEWAY_GRPC_URL
+          value: "studio-gateway:{{ .Values.gateway.grpc.port | default 9090 }}"
+        {{- end }}
         {{- if .Values.mcpServers.gemara.enabled }}
         - name: GEMARA_MCP_URL
           value: "http://studio-gemara-mcp:3000/mcp"
