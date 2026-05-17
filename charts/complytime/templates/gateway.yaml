@@ -93,9 +93,18 @@ spec:
                   key: gateway-password
             - name: POSTGRES_URL
               value: "postgres://{{ .Values.postgres.auth.gatewayUser }}:$(POSTGRES_PASSWORD)@studio-postgres:5432/{{ .Values.postgres.auth.database }}?sslmode={{ .Values.postgres.auth.sslmode | default "disable" }}"
+            - name: POSTGRES_MIGRATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgres.auth.existingSecret }}
+                  key: password
+            - name: POSTGRES_MIGRATION_URL
+              value: "postgres://{{ .Values.postgres.auth.user }}:$(POSTGRES_MIGRATION_PASSWORD)@studio-postgres:5432/{{ .Values.postgres.auth.database }}?sslmode={{ .Values.postgres.auth.sslmode | default "disable" }}"
             {{- else }}
             - name: POSTGRES_URL
               value: "postgres://{{ .Values.postgres.auth.gatewayUser }}:{{ .Values.postgres.auth.gatewayPassword }}@studio-postgres:5432/{{ .Values.postgres.auth.database }}?sslmode={{ .Values.postgres.auth.sslmode | default "disable" }}"
+            - name: POSTGRES_MIGRATION_URL
+              value: "postgres://{{ .Values.postgres.auth.user }}:{{ .Values.postgres.auth.password }}@studio-postgres:5432/{{ .Values.postgres.auth.database }}?sslmode={{ .Values.postgres.auth.sslmode | default "disable" }}"
             {{- end }}
             - name: NATS_URL
               value: "nats://studio-nats:4222"
