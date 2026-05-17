@@ -45,7 +45,7 @@ ADR 0032 established the core/workbench split and the rule "no service writes to
 ### Enforcement Rules
 
 1. Workbench process must not hold a connection to the `public` schema. The `workbench` Postgres role should have `USAGE` on `workbench` schema only, with no grants on `public`.
-2. All compliance data access from workbench goes through gateway REST API on the internal service port (8081).
+2. All compliance data access from workbench goes through gateway REST API (`http://studio-gateway:8080`). NetworkPolicy restricts which pods can reach the gateway directly (ADR 0040).
 3. Core endpoints must remain single-record or flat filtered queries. If a new endpoint requires joining across multiple entity types to produce a derived view, it belongs in the workbench.
 4. The litmus test: "Could a headless API consumer (CI pipeline, external tool) use this endpoint without caring about programs or audit workflows?" If yes, it belongs in core. If no, workbench.
 
@@ -61,4 +61,5 @@ ADR 0032 established the core/workbench split and the rule "no service writes to
 
 - [Architecture Extraction](architecture-extraction.md) — original core/workbench split
 - [Agent On-Behalf-Of Token Flow](agent-obo-flow.md) — service-to-service auth for API calls
-- [Identity Trust Model](identity-trust-model.md) — internal port (8081) auth model
+- [Standalone OAuth2 Proxy](standalone-auth-proxy.md) — proxy routes traffic; workbench calls gateway directly
+- [Identity Trust Model](identity-trust-model.md) — NetworkPolicy-based auth model
