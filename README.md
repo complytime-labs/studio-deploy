@@ -15,7 +15,7 @@ Clone all repos as siblings:
 
 ```
 upstream-repos/
-  complytime-core/      # Data Platform (Go gateway, MCP servers)
+  complytime-core/      # Data Platform (Go gateway)
   studio-ui/            # Preact SPA + Nginx
   complytime-studio/    # Studio Workbench + AI agents
   studio-deploy/        # This repo
@@ -92,15 +92,15 @@ helm install studio charts/complytime -n complytime --create-namespace -f my-val
 ## Architecture
 
 ```
-Browser → :3000 (Nginx)
-            ├── /api/*        → OAuth2 Proxy → Gateway (localhost:8080 sidecar)
+Browser → :8080 (Nginx)
+            ├── /api/*        → OAuth2 Proxy (:4180) → Gateway (:8080)
             ├── /auth/*       → OAuth2 Proxy → Gateway
             ├── /oauth2/*     → OAuth2 Proxy (OIDC callbacks)
-            ├── /workbench/*  → Workbench (Studio Workbench + Agent)
+            ├── /workbench/*  → OAuth2 Proxy → Workbench (:8090)
             └── /*            → Static SPA
 ```
 
-OAuth2 Proxy runs as a sidecar in the gateway Pod. The gateway binds to `127.0.0.1:8080` when auth is enabled, making it unreachable except through the proxy.
+OAuth2 Proxy runs as a standalone Deployment + Service (ADR 0040). It routes authenticated requests to backends by path prefix. NetworkPolicies restrict which pods can reach the gateway and workbench directly. The Kind cluster uses Calico CNI for NetworkPolicy enforcement.
 
 ## License
 

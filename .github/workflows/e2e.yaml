@@ -15,12 +15,9 @@ permissions:
 env:
   GATEWAY_URL: http://localhost:8080
   SEED_IDENTITY: e2e-test@complytime.dev
+  CALICO_VERSION: v3.29.3
 
 jobs:
-  # ── Helm template validation (fast, runs on PRs via api-tests.yaml) ──
-  # This workflow focuses on live cluster tests.
-
-  # ── Kind integration tests ──
   kind-smoke:
     name: Kind Smoke Tests
     runs-on: ubuntu-latest
@@ -33,6 +30,11 @@ jobs:
           cluster_name: complytime
           config: kind.yaml
 
+      - name: Install Calico CNI
+        run: |
+          kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/calico.yaml
+          kubectl -n kube-system wait --for=condition=Ready pods -l k8s-app=calico-node --timeout=90s
+
       - name: Install Helm
         uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
 
@@ -41,15 +43,10 @@ jobs:
           repository: complytime-labs/complytime-core
           path: _core
 
-      - name: Build gateway image
+      - name: Build and load gateway image
         run: |
           docker build -t studio-gateway:latest -f _core/Dockerfile.gateway _core
           kind load docker-image studio-gateway:latest --name complytime
-
-      - name: Build complytime-mcp image
-        run: |
-          docker build -t complytime-mcp:latest -f _core/Dockerfile.mcp _core
-          kind load docker-image complytime-mcp:latest --name complytime
 
       - name: Deploy with Helm (dev, no auth)
         run: |

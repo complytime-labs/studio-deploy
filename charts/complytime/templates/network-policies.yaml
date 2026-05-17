@@ -112,7 +112,7 @@ spec:
 
 {{- if .Values.registry.enabled }}
 ---
-# Registry: accept ingress from namespace peers (gateway, seed job).
+# Registry: accept ingress from gateway and seed job on port 5000.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -127,7 +127,13 @@ spec:
       app.kubernetes.io/part-of: complytime-studio
   ingress:
     - from:
-        - podSelector: {}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway
+              app.kubernetes.io/part-of: complytime-studio
+        - podSelector:
+            matchLabels:
+              job-name: studio-seed-registry
       ports:
         - port: 5000
           protocol: TCP
@@ -191,7 +197,7 @@ spec:
 
 {{- if .Values.clickhouse.enabled }}
 ---
-# ClickHouse: accept ingress from namespace peers.
+# ClickHouse: accept ingress from gateway on HTTP (8123) and native (9000) ports.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -206,7 +212,10 @@ spec:
       app.kubernetes.io/part-of: complytime-studio
   ingress:
     - from:
-        - podSelector: {}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway
+              app.kubernetes.io/part-of: complytime-studio
       ports:
         - port: 8123
           protocol: TCP

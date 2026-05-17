@@ -3,7 +3,7 @@
 # kagent controller manages the Deployment + Service lifecycle.
 # Agent appears in the kagent dashboard and routes A2A through the controller.
 # Connects to KMCP-managed MCP services over HTTP (same infra as declarative agents).
-{{- if .Values.kagent.crdsAvailable }}
+{{- if and .Values.kagent.crdsAvailable (not .Values.workbench.enabled) }}
 apiVersion: kagent.dev/v1alpha2
 kind: Agent
 metadata:
@@ -80,4 +80,4 @@ spec:
         limits:
           memory: "1Gi"
           cpu: "500m"
-{{- end }}{{- /* kagent.crdsAvailable */ -}}
+{{- end }}{{- /* kagent.crdsAvailable AND not workbench.enabled */ -}}
