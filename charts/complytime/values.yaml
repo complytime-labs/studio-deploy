@@ -11,6 +11,8 @@ studio:
     repository: complytime-studio
     tag: latest
   platformUrl: ""
+  service:
+    type: ClusterIP
 
 # -- Gateway configuration. User-facing entry point serving workbench SPA,
 # REST APIs, MCP proxy, and OAuth authentication. A2A proxy is separate.
@@ -224,10 +226,21 @@ postgres:
     tag: "17"
   auth:
     database: studio
+    # Superuser for migrations and initdb. Not used by application pods.
     user: studio
     password: complytime-dev  # dev only — use existingSecret for production
+    # External Secret for production. Required keys:
+    #   password          — superuser (studio) password for migrations
+    #   gateway-password  — gateway_rw role password
+    #   workbench-password — workbench_rw role password
     existingSecret: ""
     sslmode: disable  # Use "require" or "verify-full" for production
+    # Gateway credentials (public schema only)
+    gatewayUser: gateway_rw
+    gatewayPassword: complytime-dev
+    # Workbench credentials (workbench schema only)
+    workbenchUser: workbench_rw
+    workbenchPassword: complytime-dev
     # Read-only user for external dashboard clients (Grafana, Metabase).
     # The migration creates studio_reader with SELECT-only grants.
     # Override readerPassword via existingSecret in production.
@@ -279,7 +292,7 @@ nats:
 # -- NetworkPolicy for Helm-managed studio pods (gateway, registry, clickhouse).
 # Agents and MCP servers are managed by kagent/kmcp; their network policies
 # should be configured at the kagent level.
-# Requires a CNI that supports NetworkPolicy (Calico, Cilium). Kind's default
-# kindnet does NOT enforce policies — deploy to a production cluster for enforcement.
+# Requires a CNI that supports NetworkPolicy (Calico, Cilium).
+# Kind cluster uses Calico CNI (see kind.yaml + Makefile kind-create).
 networkPolicy:
   enabled: true

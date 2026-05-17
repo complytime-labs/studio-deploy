@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-05-16
-**Updated:** 2026-05-16 (standalone proxy per ADR 0040)
+**Updated:** 2026-05-17 (known limitations, Calico enforcement, Postgres role separation)
 
 ## Context
 
@@ -78,6 +78,27 @@ Intentional and acceptable — dev cluster is local (Kind) with no external ingr
 - Misconfigured NetworkPolicies degrade the model — policy correctness remains critical.
 - Dev mode is explicitly insecure. Production deployments must enable `auth.oauth2Proxy.enabled: true`.
 - Standalone proxy eliminates the sidecar hairpin where workbench traffic looped through the gateway.
+
+## Known Limitations
+
+Security review (2026-05-17). Items below are acknowledged risks with documented mitigations or deferral rationale.
+
+| Finding | Severity | Status |
+|:---|:---|:---|
+| Header spoofing without crypto proof | High | Mitigated by Calico NetworkPolicy. Full fix: mTLS or service JWT (deferred). |
+| RBAC bypass via internal `X-Forwarded-Email` | High | Mitigated by NetworkPolicy. Full fix: OBO token flow (ADR 0038, deferred). |
+| Static agent identity | Medium | Documented. Fix: workload identity or per-agent service accounts (deferred). |
+| OAuth2 Proxy SPOF | Medium | Documented. Fix: replicas + PDB (production concern). |
+| Dev mode = open | Critical if reachable | Acceptable for local-only Kind. Production MUST enable `auth.oauth2Proxy.enabled: true`. |
+| Shared Postgres user | High | Fixed. Migration 017 creates `gateway_rw` and `workbench_rw` with schema-scoped grants. |
+
+**Header spoofing.** Any pod that can reach the gateway on port 8080 can inject arbitrary `X-Forwarded-Email` headers. Calico CNI now enforces NetworkPolicies in Kind clusters, restricting gateway ingress to labeled pods (oauth2-proxy, workbench). For production, adopt mTLS or signed identity tokens on internal hops.
+
+**Static agent identity.** The workbench and agent tools call the gateway with a static `X-Forwarded-Email` header (the user who initiated the session). The gateway cannot distinguish "user clicked a button" from "agent acted on user's behalf." This is acceptable for single-tenant POC. Multi-tenant deployments should adopt per-agent service accounts or the [OBO token flow](agent-obo-flow.md).
+
+**OAuth2 Proxy availability.** The proxy is a single replica. If it crashes, all browser-based authentication fails. Headless JWT flows are unaffected (validated by the gateway directly). Production deployments should run 2+ replicas with a PodDisruptionBudget.
+
+**Dev mode.** When `auth.oauth2Proxy.enabled: false`, the gateway accepts identity headers from any caller without validation. This is intentional for local Kind clusters with no external ingress. Never expose a dev-mode cluster to a network.
 
 ## Related
 

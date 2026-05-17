@@ -80,9 +80,39 @@ metadata:
     {{- include "studio.labels" . | nindent 4 }}
 stringData:
   01-schemas-and-roles.sql: |
-    -- Workbench schema for workbench-owned tables (programs, findings, etc.)
     CREATE SCHEMA IF NOT EXISTS workbench;
-    GRANT ALL ON SCHEMA workbench TO {{ .Values.postgres.auth.user }};
+
+    -- Gateway role: full access to public schema only
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ .Values.postgres.auth.gatewayUser }}') THEN
+        CREATE ROLE {{ .Values.postgres.auth.gatewayUser }} LOGIN PASSWORD '{{ .Values.postgres.auth.gatewayPassword }}';
+      ELSE
+        ALTER ROLE {{ .Values.postgres.auth.gatewayUser }} PASSWORD '{{ .Values.postgres.auth.gatewayPassword }}';
+      END IF;
+    END $$;
+    GRANT ALL ON SCHEMA public TO {{ .Values.postgres.auth.gatewayUser }};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public
+      GRANT ALL ON TABLES TO {{ .Values.postgres.auth.gatewayUser }};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public
+      GRANT ALL ON SEQUENCES TO {{ .Values.postgres.auth.gatewayUser }};
+
+    -- Workbench role: full access to workbench schema, no access to public
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ .Values.postgres.auth.workbenchUser }}') THEN
+        CREATE ROLE {{ .Values.postgres.auth.workbenchUser }} LOGIN PASSWORD '{{ .Values.postgres.auth.workbenchPassword }}';
+      ELSE
+        ALTER ROLE {{ .Values.postgres.auth.workbenchUser }} PASSWORD '{{ .Values.postgres.auth.workbenchPassword }}';
+      END IF;
+    END $$;
+    GRANT ALL ON SCHEMA workbench TO {{ .Values.postgres.auth.workbenchUser }};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA workbench
+      GRANT ALL ON TABLES TO {{ .Values.postgres.auth.workbenchUser }};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA workbench
+      GRANT ALL ON SEQUENCES TO {{ .Values.postgres.auth.workbenchUser }};
+
+    -- Cross-schema isolation: revoke workbench access to public schema
+    REVOKE ALL ON SCHEMA workbench FROM {{ .Values.postgres.auth.gatewayUser }};
+    REVOKE ALL ON SCHEMA public FROM {{ .Values.postgres.auth.workbenchUser }};
 
     -- Read-only role for external dashboard clients (Grafana, Metabase)
     DO $$ BEGIN

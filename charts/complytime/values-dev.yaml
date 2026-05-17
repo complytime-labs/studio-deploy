@@ -23,6 +23,8 @@ blobStorage:
 postgres:
   auth:
     password: complytime-dev
+    gatewayPassword: complytime-dev
+    workbenchPassword: complytime-dev
     sslmode: disable
 
 clickhouse:

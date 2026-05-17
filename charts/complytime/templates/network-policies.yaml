@@ -7,7 +7,7 @@
 # kagent level if needed.
 #
 # Requires a CNI that supports NetworkPolicy (Calico, Cilium, etc.).
-# Kind's default kindnet does NOT enforce policies.
+# Kind cluster uses Calico CNI (see kind.yaml + Makefile kind-create).
 {{- if .Values.networkPolicy.enabled }}
 ---
 # Default deny ingress for all Helm-managed studio pods.

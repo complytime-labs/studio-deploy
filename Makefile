@@ -14,7 +14,7 @@ UI_REPO := ../studio-ui
 AGENTS_REPO := ../complytime-studio
 
 # Images built from sibling repos
-IMAGES := studio-gateway complytime-studio studio-workbench complytime-mcp
+IMAGES := studio-gateway complytime-studio studio-workbench
 
 # OIDC settings for helm-dev-auth: define in `.env` (included above) or export
 # into the shell environment. Never pass OIDC_* as `make VAR=value` CLI
@@ -42,15 +42,19 @@ infra-down: ## Stop infrastructure containers
 
 # --- Kind cluster lifecycle ---
 
-kind-create: ## Create a kind cluster
+CALICO_VERSION := v3.29.3
+CALICO_MANIFEST := https://raw.githubusercontent.com/projectcalico/calico/$(CALICO_VERSION)/manifests/calico.yaml
+
+kind-create: ## Create a kind cluster (Calico CNI for NetworkPolicy enforcement)
 	kind create cluster --config kind.yaml
+	kubectl apply -f $(CALICO_MANIFEST)
+	kubectl -n kube-system wait --for=condition=Ready pods -l k8s-app=calico-node --timeout=90s
 
 kind-delete: ## Delete the kind cluster
 	kind delete cluster --name $(KIND_CLUSTER)
 
 kind-build: ## Build all container images
 	docker build -f $(STUDIO_REPO)/Dockerfile.gateway -t studio-gateway:latest $(STUDIO_REPO)
-	docker build -f $(STUDIO_REPO)/Dockerfile.complytime-mcp -t complytime-mcp:latest $(STUDIO_REPO)
 	docker build -f $(UI_REPO)/Dockerfile -t complytime-studio:latest $(UI_REPO)
 	docker build -f $(AGENTS_REPO)/Dockerfile.workbench -t studio-workbench:latest $(AGENTS_REPO)
 
