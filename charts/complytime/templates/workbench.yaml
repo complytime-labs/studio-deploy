@@ -73,10 +73,6 @@ spec:
             {{- end }}
             - name: GATEWAY_URL
               value: "http://studio-gateway:8080"
-            {{- if .Values.gateway.grpc.enabled }}
-            - name: GATEWAY_GRPC_URL
-              value: "studio-gateway:{{ .Values.gateway.grpc.port | default 9090 }}"
-            {{- end }}
             - name: KAGENT_URL
               value: {{ .Values.workbench.kagentUrl | default "http://kagent-controller.kagent.svc.cluster.local:8083" | quote }}
             - name: AGENT_DIRECTORY

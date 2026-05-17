@@ -35,10 +35,6 @@ studio:
     type: NodePort
     nodePort: 30080
 
-gateway:
-  grpc:
-    enabled: true
-
 registry:
   enabled: true
   service:

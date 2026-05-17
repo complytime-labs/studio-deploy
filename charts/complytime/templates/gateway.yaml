@@ -26,11 +26,6 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
-            {{- if .Values.gateway.grpc.enabled }}
-            - name: grpc
-              containerPort: {{ .Values.gateway.grpc.port | default 9090 }}
-              protocol: TCP
-            {{- end }}
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
@@ -104,10 +99,6 @@ spec:
             {{- end }}
             - name: NATS_URL
               value: "nats://studio-nats:4222"
-            {{- if .Values.gateway.grpc.enabled }}
-            - name: GRPC_PORT
-              value: {{ .Values.gateway.grpc.port | default 9090 | quote }}
-            {{- end }}
           resources:
             requests:
               memory: "64Mi"
@@ -133,9 +124,3 @@ spec:
       port: 8080
       targetPort: 8080
       protocol: TCP
-    {{- if .Values.gateway.grpc.enabled }}
-    - name: grpc
-      port: {{ .Values.gateway.grpc.port | default 9090 }}
-      targetPort: {{ .Values.gateway.grpc.port | default 9090 }}
-      protocol: TCP
-    {{- end }}
