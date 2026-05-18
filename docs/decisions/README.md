@@ -20,6 +20,7 @@ Platform decisions live in [complytime-core](https://github.com/complytime-labs/
 |:--|:--|:--|:--|
 | 0038 | [Agent On-Behalf-Of Token Flow](agent-obo-flow.md) | Proposed | 2026-05-16 |
 | 0042 | [gRPC Streaming for Internal Data-Intensive Paths](dual-protocol-rest-grpc.md) | Proposed | 2026-05-16 |
+| 0043 | [Trusted Publisher Model for Evidence Ingestion](trusted-publisher-evidence.md) | Proposed | 2026-05-18 |
 
 ## Superseded / Deferred
 
