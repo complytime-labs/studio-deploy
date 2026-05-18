@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Headless data platform — gateway + postgres + nats only, no UI.
+# Validates that Studio operates as an API-only platform for external services.
+#
+# Usage: docker compose -f docker-compose.yaml -f docker-compose.headless.yaml up gateway postgres nats
+
+services:
+  studio:
+    profiles:
+      - disabled
+  workbench:
+    profiles:
+      - disabled
+  gemara-mcp:
+    profiles:
+      - disabled
+  oras-mcp:
+    profiles:
+      - disabled
+  studio-mcp:
+    profiles:
+      - disabled

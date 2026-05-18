@@ -1,0 +1,136 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Standalone OAuth2 Proxy — authenticates all user-facing traffic.
+# Routes authenticated requests to backends by path prefix.
+# See docs/decisions/standalone-auth-proxy.md (ADR 0040).
+{{- if .Values.auth.oauth2Proxy.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: studio-oauth2-proxy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "studio.labels" . | nindent 4 }}
+    app.kubernetes.io/name: oauth2-proxy
+    app.kubernetes.io/component: auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: oauth2-proxy
+  template:
+    metadata:
+      labels:
+        {{- include "studio.labels" . | nindent 8 }}
+        app.kubernetes.io/name: oauth2-proxy
+        app.kubernetes.io/component: auth
+        app.kubernetes.io/part-of: complytime-studio
+    spec:
+      containers:
+        - name: oauth2-proxy
+          image: "{{ .Values.auth.oauth2Proxy.image.repository }}:{{ .Values.auth.oauth2Proxy.image.tag }}"
+          args:
+            - --provider={{ .Values.auth.oauth2Proxy.provider }}
+            - --oidc-issuer-url={{ .Values.auth.oauth2Proxy.issuerUrl }}
+            - --client-id={{ .Values.auth.oauth2Proxy.clientId }}
+            - --client-secret-file=/etc/oauth2-proxy/client-secret
+            - --redirect-url={{ .Values.auth.oauth2Proxy.callbackUrl }}
+            - --http-address=0.0.0.0:4180
+            - --cookie-secure={{ .Values.auth.oauth2Proxy.cookieSecure }}
+            - --set-xauthrequest=true
+            - --pass-access-token=true
+            - --code-challenge-method=S256
+            - --skip-provider-button=true
+            - --email-domain={{ join "," .Values.auth.oauth2Proxy.emailDomains }}
+            - --scope={{ .Values.auth.oauth2Proxy.scopes }}
+            # Path-based upstreams: proxy routes to the correct backend.
+            - --upstream=http://studio-gateway.{{ .Release.Namespace }}.svc.cluster.local:8080/api/
+            - --upstream=http://studio-gateway.{{ .Release.Namespace }}.svc.cluster.local:8080/auth/
+            {{- if .Values.workbench.enabled }}
+            - --upstream=http://studio-workbench.{{ .Release.Namespace }}.svc.cluster.local:8090/workbench/
+            {{- end }}
+            # Skip auth for public endpoints.
+            - --skip-auth-route=GET=/healthz
+            - --skip-auth-route=GET=/auth/me
+            - --skip-auth-route=GET=/auth/logged-out
+            - --skip-auth-route=GET=/api/config
+            {{- if .Values.auth.oauth2Proxy.skipJwtBearerTokens }}
+            - --skip-jwt-bearer-tokens=true
+            - --bearer-token-login-fallback={{ ternary "true" "false" (ne .Values.auth.oauth2Proxy.bearerTokenLoginFallback false) }}
+            {{- range .Values.auth.oauth2Proxy.extraAudiences }}
+            - --oidc-extra-audience={{ . }}
+            {{- end }}
+            {{- range .Values.auth.oauth2Proxy.extraJwtIssuers }}
+            - --extra-jwt-issuers={{ . }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.auth.oauth2Proxy.forceJsonErrors }}
+            - --force-json-errors=true
+            {{- end }}
+            {{- range .Values.auth.oauth2Proxy.allowedGroups }}
+            - --allowed-group={{ . }}
+            {{- end }}
+          env:
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.cookieSecretName | default "studio-cookie-secret" }}
+                  key: cookie-secret
+          ports:
+            - name: proxy
+              containerPort: 4180
+              protocol: TCP
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: 4180
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 4180
+            periodSeconds: 10
+          volumeMounts:
+            - name: oauth2-proxy-secret
+              mountPath: /etc/oauth2-proxy
+              readOnly: true
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+      volumes:
+        - name: oauth2-proxy-secret
+          secret:
+            secretName: {{ .Values.auth.oauth2Proxy.secretName }}
+            items:
+              - key: {{ .Values.auth.oauth2Proxy.secretKey }}
+                path: client-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: studio-oauth2-proxy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "studio.labels" . | nindent 4 }}
+    app.kubernetes.io/name: oauth2-proxy
+    app.kubernetes.io/component: auth
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: oauth2-proxy
+  ports:
+    - name: proxy
+      port: 4180
+      targetPort: 4180
+      protocol: TCP
+{{- end }}

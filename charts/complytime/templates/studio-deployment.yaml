@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: Apache-2.0
+{{- if .Values.studio.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: studio-ui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: studio-ui
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: complytime-studio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: studio-ui
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: studio-ui
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: complytime-studio
+    spec:
+      containers:
+        - name: studio
+          image: "{{ .Values.studio.image.repository }}:{{ .Values.studio.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: PLATFORM_URL
+              value: {{ .Values.studio.platformUrl | default "" | quote }}
+            {{- if .Values.auth.oauth2Proxy.enabled }}
+            - name: GATEWAY_UPSTREAM
+              value: {{ .Values.studio.gatewayUpstream | default (printf "studio-oauth2-proxy.%s.svc.cluster.local:4180" .Release.Namespace) | quote }}
+            {{- else }}
+            - name: GATEWAY_UPSTREAM
+              value: {{ .Values.studio.gatewayUpstream | default (printf "studio-gateway.%s.svc.cluster.local:8080" .Release.Namespace) | quote }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "100m"
+{{- end }}

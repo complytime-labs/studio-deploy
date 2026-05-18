@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: Apache-2.0
+name: API Integration Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  helm-validation:
+    name: Helm Template Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install Helm
+        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+
+      - name: Helm lint
+        run: helm lint charts/complytime
+
+      - name: Helm template (dev)
+        run: helm template studio charts/complytime -f charts/complytime/values-dev.yaml > /dev/null
+
+      - name: Helm template (headless)
+        run: helm template studio charts/complytime -f charts/complytime/values-headless.yaml > /dev/null
+
+      - name: Helm template (dev-auth)
+        run: |
+          helm template studio charts/complytime \
+            -f charts/complytime/values-dev-auth.yaml \
+            --set auth.oauth2Proxy.issuerUrl=https://example.com \
+            --set auth.oauth2Proxy.clientId=test \
+            --set auth.oauth2Proxy.clientSecret=test > /dev/null
+
+      - name: Headless mode excludes UI
+        run: make test-helm-headless

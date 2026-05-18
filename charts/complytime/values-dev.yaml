@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Dev profile — full stack on a kind cluster with auth disabled.
+# Base layer for all local development profiles.
+#
+# Usage:
+#   helm install studio charts/complytime -f charts/complytime/values-dev.yaml
+#   — or —
+#   make helm-dev
+
+auth:
+  oauth2Proxy:
+    enabled: false
+    callbackUrl: "http://localhost:8080/oauth2/callback"
+    cookieSecure: false
+
+kagent:
+  crdsAvailable: false
+
+blobStorage:
+  useSSL: false
+
+postgres:
+  auth:
+    password: complytime-dev
+    gatewayPassword: complytime-dev
+    workbenchPassword: complytime-dev
+    sslmode: disable
+
+clickhouse:
+  auth:
+    password: complytime-dev
+    readerPassword: complytime-reader-dev
+
+studio:
+  service:
+    type: NodePort
+    nodePort: 30080
+
+registry:
+  enabled: true
+  service:
+    type: NodePort

@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Headless profile — API-only deployment for integration testing and
+# service-to-service use. No UI, no workbench, no auth, no kagent CRDs.
+#
+# Usage:
+#   helm install studio charts/complytime -f charts/complytime/values-dev.yaml -f charts/complytime/values-headless.yaml
+#   — or —
+#   make helm-headless
+
+studio:
+  enabled: false
+
+workbench:
+  enabled: false
+
+auth:
+  oauth2Proxy:
+    enabled: false
+
+kagent:
+  crdsAvailable: false

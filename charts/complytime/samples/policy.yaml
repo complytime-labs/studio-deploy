@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: Apache-2.0
+# Sample Gemara Policy — Container Security Baseline
+# References the SEC.SLAM.CM control catalog for effective control resolution.
+
+title: Container Security Baseline
+
+metadata:
+  id: container-security-baseline
+  type: Policy
+  gemara-version: "1.0.0"
+  description: |
+    Baseline security policy for container workloads. Imports controls
+    from the SEC.SLAM.CM control catalog and defines constraints for
+    image provenance and runtime isolation.
+  version: 1.0.0
+  author:
+    id: complytime-samples
+    name: ComplyTime Samples
+    type: Human
+  mapping-references:
+    - id: SEC.SLAM.CM
+      title: Container Management Tool Security Control Catalog
+      version: "1.0.0"
+      description: |
+        Control catalog for container management tool security.
+
+contacts:
+  responsible:
+    - name: Platform Engineering
+      email: platform-eng@example.org
+  accountable:
+    - name: CISO Office
+      email: ciso@example.org
+
+scope:
+  in:
+    technologies:
+      - Container runtimes
+      - Container orchestration
+      - Container image registries
+    sensitivity:
+      - Confidential
+      - Internal
+
+imports:
+  catalogs:
+    - reference-id: SEC.SLAM.CM
+      constraints:
+        - id: CSB.CON01
+          target-id: SEC.SLAM.CM.CTL01
+          text: |
+            All container images deployed to production must have a verifiable
+            build provenance attestation from the CI/CD pipeline at SLSA level 2
+            or higher.
+        - id: CSB.CON02
+          target-id: SEC.SLAM.CM.CTL02
+          text: |
+            TLS certificate pinning must be enforced for all internal and
+            external registry endpoints without exception.
+
+adherence:
+  evaluation-methods:
+    - id: CSB.EM01
+      type: Behavioral
+      mode: Automated
+      required: true
+      description: |
+        Automated scan of deployed container images to verify digest pinning
+        and provenance attestation.
+      executor:
+        id: complytime-scanner
+        name: ComplyTime Scanner
+        type: Software
+  enforcement-methods:
+    - id: CSB.ENF01
+      type: Gate
+      mode: Automated
+      required: true
+      description: |
+        Admission controller rejects pods referencing images by mutable tag
+        without a verified digest.
+      executor:
+        id: admission-controller
+        name: Kubernetes Admission Controller
+        type: Software
+  non-compliance: |
+    Non-compliant workloads are blocked at admission. Existing violations
+    trigger a 30-day remediation window with weekly escalation.

@@ -1,0 +1,90 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# E2E tests run against a Kind cluster with Helm. Triggered manually
+# or on push to main (not on every PR — too slow for CI).
+name: E2E Tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  GATEWAY_URL: http://localhost:8080
+  SEED_IDENTITY: e2e-test@complytime.dev
+  CALICO_VERSION: v3.29.3
+
+jobs:
+  kind-smoke:
+    name: Kind Smoke Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install Kind
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        with:
+          cluster_name: complytime
+          config: kind.yaml
+
+      - name: Install Calico CNI
+        run: |
+          kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/calico.yaml
+          kubectl -n kube-system wait --for=condition=Ready pods -l k8s-app=calico-node --timeout=90s
+
+      - name: Install Helm
+        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: complytime-labs/complytime-core
+          path: _core
+
+      - name: Build and load gateway image
+        run: |
+          docker build -t studio-gateway:latest -f _core/Dockerfile.gateway _core
+          kind load docker-image studio-gateway:latest --name complytime
+
+      - name: Deploy with Helm (dev, no auth)
+        run: |
+          helm install studio charts/complytime \
+            -n complytime --create-namespace \
+            -f charts/complytime/values-dev.yaml
+
+      - name: Wait for pods
+        run: |
+          kubectl wait --for=condition=ready pod \
+            -l app.kubernetes.io/part-of=complytime-studio \
+            -n complytime --timeout=120s || true
+          kubectl get pods -n complytime
+
+      - name: Smoke test gateway
+        run: |
+          kubectl port-forward -n complytime svc/studio-gateway 8080:8080 &
+          sleep 3
+          curl -sf http://localhost:8080/healthz
+          echo " Gateway healthy"
+
+      - name: Helm headless validation
+        run: make test-helm-headless
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          kubectl logs -n complytime -l app.kubernetes.io/part-of=complytime-studio \
+            --all-containers --tail=50 > /tmp/kind-logs.txt 2>&1
+          kubectl get pods -n complytime -o wide >> /tmp/kind-logs.txt
+
+      - name: Upload failure logs
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kind-logs
+          path: /tmp/kind-logs.txt
+
+      - name: Tear down
+        if: always()
+        run: kind delete cluster --name complytime

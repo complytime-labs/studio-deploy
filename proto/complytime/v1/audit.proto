@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package complytime.v1;
+
+option go_package = "github.com/complytime-labs/complytime-core/gen/complytime/v1;complytimev1";
+
+import "google/protobuf/timestamp.proto";
+
+service AuditService {
+  rpc CreateDraftAuditLog(CreateDraftAuditLogRequest) returns (CreateDraftAuditLogResponse);
+  rpc ListDraftAuditLogs(ListDraftAuditLogsRequest) returns (ListDraftAuditLogsResponse);
+  rpc PromoteDraft(PromoteDraftRequest) returns (PromoteDraftResponse);
+}
+
+message CreateDraftAuditLogRequest {
+  string policy_id = 1;
+  string title = 2;
+  string content = 3;
+  string created_by = 4;
+}
+
+message CreateDraftAuditLogResponse {
+  string id = 1;
+}
+
+message ListDraftAuditLogsRequest {
+  string policy_id = 1;
+}
+
+message DraftAuditLog {
+  string id = 1;
+  string policy_id = 2;
+  string title = 3;
+  string content = 4;
+  string created_by = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message ListDraftAuditLogsResponse {
+  repeated DraftAuditLog drafts = 1;
+}
+
+message PromoteDraftRequest {
+  string draft_id = 1;
+}
+
+message PromoteDraftResponse {
+  string audit_log_id = 1;
+}

@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Shared platform prompt fragments referenced by agents via promptTemplate.
+# Previously loaded from agents/platform.md (now in complytime-agents repo).
+# Content is provided via values.yaml platformPrompt.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: studio-platform-prompts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "studio.labels" . | nindent 4 }}
+data:
+  platform: |
+{{ .Values.platformPrompt | default "You are a ComplyTime Studio agent." | indent 4 }}

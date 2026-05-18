@@ -1,0 +1,134 @@
+# SPDX-License-Identifier: Apache-2.0
+{{- if .Values.workbench.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: studio-workbench
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "studio.labels" . | nindent 4 }}
+    app.kubernetes.io/name: studio-workbench
+    app.kubernetes.io/component: workbench
+    app.kubernetes.io/part-of: complytime-studio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: studio-workbench
+  template:
+    metadata:
+      labels:
+        {{- include "studio.labels" . | nindent 8 }}
+        app.kubernetes.io/name: studio-workbench
+        app.kubernetes.io/component: workbench
+        app.kubernetes.io/part-of: complytime-studio
+    spec:
+      containers:
+        - name: workbench
+          image: "{{ .Values.workbench.image.repository }}:{{ .Values.workbench.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: workbench
+              containerPort: 8090
+              protocol: TCP
+            - name: agent
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: WORKBENCH_PORT
+              value: "8090"
+            {{- if and .Values.mcpServers.gemara.enabled .Values.kagent.crdsAvailable }}
+            - name: GEMARA_MCP_URL
+              value: "http://studio-gemara-mcp:3000/mcp"
+            {{- end }}
+            {{- if .Values.nats.enabled }}
+            - name: NATS_URL
+              value: "nats://studio-nats:4222"
+            {{- end }}
+            {{- if .Values.postgres.auth.existingSecret }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgres.auth.existingSecret }}
+                  key: workbench-password
+            - name: POSTGRES_URL
+              value: "postgres://{{ .Values.postgres.auth.workbenchUser }}:$(POSTGRES_PASSWORD)@studio-postgres:5432/{{ .Values.postgres.auth.database }}?sslmode={{ .Values.postgres.auth.sslmode | default "disable" }}"
+            {{- else }}
+            - name: POSTGRES_URL
+              value: "postgres://{{ .Values.postgres.auth.workbenchUser }}:{{ .Values.postgres.auth.workbenchPassword }}@studio-postgres:5432/{{ .Values.postgres.auth.database }}?sslmode={{ .Values.postgres.auth.sslmode | default "disable" }}"
+            {{- end }}
+            - name: MODEL_PROVIDER
+              value: {{ .Values.model.provider | quote }}
+            - name: MODEL_NAME
+              value: {{ .Values.model.name | quote }}
+            {{- if .Values.model.vertexAI.projectID }}
+            - name: GOOGLE_CLOUD_PROJECT
+              value: {{ .Values.model.vertexAI.projectID | quote }}
+            - name: GOOGLE_CLOUD_LOCATION
+              value: {{ .Values.model.vertexAI.location | default "us-east5" | quote }}
+            {{- end }}
+            {{- if .Values.model.vertexAI.credentialsSecret }}
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/run/secrets/gcp/application_default_credentials.json
+            {{- end }}
+            - name: GATEWAY_URL
+              value: "http://studio-gateway:8080"
+            - name: KAGENT_URL
+              value: {{ .Values.workbench.kagentUrl | default "http://kagent-controller.kagent.svc.cluster.local:8083" | quote }}
+            - name: AGENT_DIRECTORY
+              value: {{ .Values.workbench.agentDirectory | default "[]" | quote }}
+          startupProbe:
+            httpGet:
+              path: /workbench/agents
+              port: workbench
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /workbench/agents
+              port: workbench
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /workbench/agents
+              port: workbench
+            periodSeconds: 30
+          {{- if .Values.model.vertexAI.credentialsSecret }}
+          volumeMounts:
+            - name: gcp-credentials
+              mountPath: /var/run/secrets/gcp
+              readOnly: true
+          {{- end }}
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+      {{- if .Values.model.vertexAI.credentialsSecret }}
+      volumes:
+        - name: gcp-credentials
+          secret:
+            secretName: {{ .Values.model.vertexAI.credentialsSecret }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: studio-workbench
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "studio.labels" . | nindent 4 }}
+    app.kubernetes.io/name: studio-workbench
+    app.kubernetes.io/component: workbench
+spec:
+  type: ClusterIP
+  ports:
+    - name: workbench
+      port: 8090
+      targetPort: workbench
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: studio-workbench
+{{- end }}

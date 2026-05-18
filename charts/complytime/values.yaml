@@ -1,0 +1,298 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Default values for complytime-studio — targeting kind development clusters.
+# Override with values-openshift.yaml (or equivalent) for production.
+
+# -- Studio SPA deployment. Standalone Nginx container serving the Preact
+# workbench. Set enabled=false for headless (API-only) deployments.
+studio:
+  enabled: true
+  image:
+    repository: complytime-studio
+    tag: latest
+  platformUrl: ""
+  service:
+    type: ClusterIP
+
+# -- Gateway configuration. User-facing entry point serving workbench SPA,
+# REST APIs, MCP proxy, and OAuth authentication. A2A proxy is separate.
+gateway:
+  image:
+    repository: studio-gateway
+    tag: latest
+  autoPersistArtifacts: true
+
+# -- S3-compatible blob storage for evidence attachments.
+# When disabled, the gateway omits BLOB_* env vars.
+# For kind/dev, enable and point at in-cluster MinIO or RustFS.
+blobStorage:
+  enabled: false
+  endpoint: ""
+  bucket: complytime-evidence
+  useSSL: false
+  secretName: studio-blob-credentials
+  # When true, Helm renders templates/blob-secret.yaml (dev only — use external
+  # secrets in production).
+  createSecret: false
+  accessKey: ""
+  secretKey: ""
+
+# -- Authentication via standalone OAuth2 Proxy (ADR 0040).
+# Deployed as a separate pod/service that routes to backends by path prefix.
+# Handles OIDC discovery, PKCE, JWKS, token refresh, and session cookies.
+# Supports any OIDC provider (Keycloak, Okta, Azure AD, Google, Dex, Hydra).
+# When disabled (dev mode), the proxy is not created. The gateway middleware
+# still returns 401 for /api/* requests without X-Forwarded-Email.
+auth:
+  oauth2Proxy:
+    enabled: true
+    image:
+      repository: quay.io/oauth2-proxy/oauth2-proxy
+      tag: "v7.15.1"
+    # OIDC provider type — "oidc" for generic, "keycloak-oidc" for Keycloak.
+    provider: oidc
+    # Must expose /.well-known/openid-configuration
+    issuerUrl: ""
+    clientId: ""
+    # Kubernetes Secret containing the client-secret key.
+    secretName: studio-oauth-credentials
+    secretKey: client-secret
+    # When true, Helm creates the secret from clientSecret below (dev only —
+    # use external secrets or sealed-secrets in production).
+    createSecret: false
+    clientSecret: ""
+    callbackUrl: "http://localhost:8080/oauth2/callback"
+    scopes: "openid email profile"
+    # Requires HTTPS. Set false for local Kind/Compose (Makefile handles this).
+    cookieSecure: true
+    # Restrict login by email domain. ["*"] allows all.
+    emailDomains: ["*"]
+    # Restrict login by OIDC group claim. [] allows all.
+    allowedGroups: []
+    # -- Headless / service-to-service authentication.
+    # When true, OAuth2 Proxy validates JWT bearer tokens in Authorization
+    # headers against the OIDC provider's JWKS endpoint. External services
+    # obtain a JWT via client credentials grant (or device flow) from the
+    # same OIDC provider and send it as: Authorization: Bearer <jwt>.
+    # The proxy extracts email/groups/sub claims and injects the same
+    # X-Forwarded-* headers as browser sessions — zero gateway code changes.
+    # Token must have aud matching clientId (or an entry in extraAudiences).
+    skipJwtBearerTokens: false
+    # Return JSON error bodies instead of HTML redirects for API clients.
+    # Recommended when skipJwtBearerTokens is true.
+    forceJsonErrors: false
+    # When skipJwtBearerTokens is true and an invalid JWT is presented,
+    # fall back to login redirect (true) or return 403 immediately (false).
+    # Set false for headless-only deployments.
+    bearerTokenLoginFallback: true
+    # Additional OIDC audiences accepted for JWT validation beyond clientId.
+    # Use when service credentials have a different aud claim.
+    extraAudiences: []
+    # Additional trusted JWT issuers beyond the primary issuerUrl.
+    # Format: "issuer=audience" pairs. Each issuer must expose
+    # .well-known/openid-configuration or .well-known/jwks.json.
+    extraJwtIssuers: []
+
+# -- GitHub organization/user and repository name. Single source of truth
+# for platformRepo URL, Chart.yaml home/sources, and workbench links.
+github:
+  org: jpower432
+  repo: complytime-studio
+
+# -- Git URL of this repository, used for internal skill gitRefs.
+platformRepo: https://github.com/jpower432/complytime-studio.git
+
+# -- Platform prompt injected into all agents via studio-platform-prompts ConfigMap.
+# Override with a full prompt string for production deployments.
+platformPrompt: "You are a ComplyTime Studio agent."
+
+# -- Agent system prompts keyed by agent short name. Stored in the
+# studio-agent-prompts ConfigMap. Previously loaded from agents/*/prompt.md
+# (now in the complytime-agents repo). Override per-agent or vendor via CI.
+agentPrompts:
+  assistant: "You specialize in audit preparation and compliance analysis."
+
+# -- External skill repositories. kagent clones these and mounts them into
+# the agent container. To add a new external skill:
+#   1. Add an entry here with repo, ref, and path
+#   2. Add a matching entry in the complytime-agents repo agent.yaml skills block
+externalSkills:
+  research:
+    enabled: true
+    repo: https://github.com/rhaml-23/prompt.git
+    ref: main
+    path: skills/research.md
+  gemara:
+    enabled: true
+    repo: https://github.com/rhaml-23/prompt.git
+    ref: main
+    path: skills/gemara.md
+
+# -- kagent controller settings.
+# crdsAvailable gates MCPServer and Agent CRD templates. Set to false for
+# kind clusters without the kagent operator installed.
+kagent:
+  crdsAvailable: true
+
+# -- Studio Workbench. Combined Python server: workbench HTTP endpoints
+# (/workbench/*) + studio-assistant agent (A2A on port 8080).
+# Owns: A2A routing, agent directory, chat state, Gemara validate/migrate,
+# OCI publish/browse. See docs/decisions/data-platform-workbench-split.md.
+workbench:
+  enabled: true
+  image:
+    repository: studio-workbench
+    tag: latest
+  agentDirectory: >-
+    [{"name":"studio-assistant","description":"Audit preparation, evidence synthesis, cross-framework coverage analysis","url":"http://localhost:8080/","skills":[{"id":"compliance-assistant","name":"Studio Assistant"}]}]
+
+# -- BYO assistant agent (legacy standalone). Used by byo-assistant.yaml
+# when workbench is not deployed. Prefer workbench.enabled=true.
+assistant:
+  image:
+    repository: studio-assistant
+    tag: latest
+
+# -- Per-agent model overrides. Keys match agent short names from agentDirectory.
+# When a key is absent or empty, the agent inherits the global model.* values.
+# Example: agents.assistant.model.provider: GeminiVertexAI
+agents:
+  assistant: {}
+
+# -- Global model configuration. Used as default for all agents unless
+# overridden per-agent in agents.<name>.model.
+model:
+  provider: AnthropicVertexAI
+  name: claude-opus-4-6
+  # apiKeySecret:
+  #   name: studio-model-credentials
+  #   key: api-key
+  # -- Vertex AI configuration. Shared by all Vertex AI providers
+  # (GeminiVertexAI, AnthropicVertexAI). Same project, location, and
+  # credentials regardless of which model is selected.
+  vertexAI:
+    projectID: ""
+    location: global
+    # Secret containing application_default_credentials.json for GCP auth.
+    # Required when running outside GKE (e.g. kind) without workload identity.
+    credentialsSecret: studio-gcp-credentials
+
+# -- MCP servers deployed via kagent MCPServer CRDs (ADR 0041).
+# Only gemara-mcp retained — provides unique CUE validation/migration.
+# complytime-mcp and oras-mcp removed (pure proxies with no unique logic).
+mcpServers:
+  gemara:
+    enabled: true
+    image: ghcr.io/gemaraproj/gemara-mcp:0.3.0
+
+# -- ClickHouse. Disabled by default. Enable for production deployments
+# where evidence volume exceeds PostgreSQL capacity. When enabled, the
+# operator configures pg_clickhouse FDW to route evidence queries to
+# ClickHouse transparently. See docs/decisions/postgres-with-extensions.md.
+clickhouse:
+  enabled: false
+  image:
+    repository: clickhouse/clickhouse-server
+    tag: "25.3"
+  auth:
+    user: default
+    password: complytime-dev
+    existingSecret: ""
+    readerUser: reader
+    readerPassword: complytime-reader-dev
+  storage:
+    size: 2Gi
+  retentionMonths: 24
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "1"
+    limits:
+      memory: "4Gi"
+      cpu: "4"
+  mcp:
+    image:
+      repository: docker.io/mcp/clickhouse
+      tag: "2025-10-31"
+
+# -- PostgreSQL. Required. Single application database for all data:
+# programs, users, evidence, policies, audit logs, certifications, mappings.
+# For production evidence scaling, enable ClickHouse above and configure
+# pg_clickhouse FDW for transparent query pushdown.
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "17"
+  auth:
+    database: studio
+    # Superuser for migrations and initdb. Not used by application pods.
+    user: studio
+    password: complytime-dev  # dev only — use existingSecret for production
+    # External Secret for production. Required keys:
+    #   password          — superuser (studio) password for migrations
+    #   gateway-password  — gateway_rw role password
+    #   workbench-password — workbench_rw role password
+    existingSecret: ""
+    sslmode: disable  # Use "require" or "verify-full" for production
+    # Gateway credentials (public schema only)
+    gatewayUser: gateway_rw
+    gatewayPassword: complytime-dev
+    # Workbench credentials (workbench schema only)
+    workbenchUser: workbench_rw
+    workbenchPassword: complytime-dev
+    # Read-only user for external dashboard clients (Grafana, Metabase).
+    # The migration creates studio_reader with SELECT-only grants.
+    # Override readerPassword via existingSecret in production.
+    readerUser: studio_reader
+    readerPassword: complytime-reader-dev
+  storage:
+    size: 1Gi
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "1"
+
+# -- Built-in OCI registry (dev only). Disable for production clusters
+# where an external registry (Quay, GHCR, etc.) is available.
+registry:
+  enabled: true
+  image: ghcr.io/project-zot/zot-linux-amd64:v2.1.16
+  service:
+    port: 5000
+    type: NodePort
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+  seed:
+    enabled: true
+    image: ghcr.io/oras-project/oras:v1.2.2
+
+# -- NATS lightweight messaging — required by gateway (publish) and engine
+# (subscribe) for the certification pipeline and draft-audit-log notifications.
+# NATS is CNCF-graduated. Single-node, no JetStream — minimal footprint.
+nats:
+  enabled: true
+  image: nats:2-alpine
+  resources:
+    requests:
+      memory: "32Mi"
+      cpu: "25m"
+    limits:
+      memory: "128Mi"
+      cpu: "100m"
+
+# -- NetworkPolicy for Helm-managed studio pods (gateway, registry, clickhouse).
+# Agents and MCP servers are managed by kagent/kmcp; their network policies
+# should be configured at the kagent level.
+# Requires a CNI that supports NetworkPolicy (Calico, Cilium).
+# Kind cluster uses Calico CNI (see kind.yaml + Makefile kind-create).
+networkPolicy:
+  enabled: true

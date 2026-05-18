@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package complytime.v1;
+
+option go_package = "github.com/complytime-labs/complytime-core/gen/complytime/v1;complytimev1";
+
+import "google/protobuf/timestamp.proto";
+
+service EvidenceService {
+  rpc QueryEvidence(QueryEvidenceRequest) returns (stream QueryEvidenceResponse);
+  rpc GetCertifications(GetCertificationsRequest)
+      returns (GetCertificationsResponse);
+}
+
+message QueryEvidenceRequest {
+  string policy_id = 1;
+  string target = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message EvidenceRecord {
+  string id = 1;
+  string policy_id = 2;
+  string target = 3;
+  string plan_id = 4;
+  string method = 5;
+  string collector = 6;
+  string content_type = 7;
+  google.protobuf.Timestamp collected_at = 8;
+  google.protobuf.Timestamp expires_at = 9;
+}
+
+message QueryEvidenceResponse {
+  EvidenceRecord record = 1;
+}
+
+message GetCertificationsRequest {
+  string policy_id = 1;
+  string evidence_id = 2;
+}
+
+message Certification {
+  string id = 1;
+  string evidence_id = 2;
+  string certifier = 3;
+  string result = 4;
+  string reason = 5;
+  google.protobuf.Timestamp certified_at = 6;
+}
+
+message GetCertificationsResponse {
+  repeated Certification certifications = 1;
+}

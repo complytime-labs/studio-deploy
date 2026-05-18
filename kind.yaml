@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Kind cluster configuration for local ComplyTime Studio development.
+# Uses Calico CNI for NetworkPolicy enforcement (replaces kindnet).
+# Usage: kind create cluster --config kind.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: complytime
+networking:
+  disableDefaultCNI: true
+  podSubnet: "10.244.0.0/16"
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP
+      - containerPort: 30090
+        hostPort: 8090
+        protocol: TCP

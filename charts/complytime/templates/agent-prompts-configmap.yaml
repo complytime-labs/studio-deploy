@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Agent system prompts. Previously loaded from agents/*/prompt.md (now in
+# complytime-agents repo). Prompts are provided via values.yaml
+# agentPrompts.<name> or vendored into the chart at release time.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: studio-agent-prompts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "studio.labels" . | nindent 4 }}
+data:
+  {{- range $name, $prompt := .Values.agentPrompts }}
+  {{ $name }}: |
+{{ $prompt | indent 4 }}
+  {{- end }}
