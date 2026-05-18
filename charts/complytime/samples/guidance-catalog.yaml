@@ -1,11 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
 # Minimal Secure Software Development Guidance
-# Conforms to Gemara Layer 1 #GuidanceCatalog (layer-1.cue).
+# Conforms to Gemara #GuidanceCatalog.
 
 title: Secure Software Development Guidance
 metadata:
   id: ORG.SSD.001
   type: GuidanceCatalog
-  gemara-version: "0.20.0"
+  gemara-version: "1.0.0"
   description: Internal secure development and supply chain security guidelines (dependencies, images, and development practices) aligned to industry standards
   version: 1.0.0
   author:
