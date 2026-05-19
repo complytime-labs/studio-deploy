@@ -104,6 +104,7 @@ stringData:
         ALTER ROLE {{ .Values.postgres.auth.workbenchUser }} PASSWORD '{{ .Values.postgres.auth.workbenchPassword }}';
       END IF;
     END $$;
+    GRANT CREATE ON DATABASE {{ .Values.postgres.auth.database }} TO {{ .Values.postgres.auth.workbenchUser }};
     GRANT ALL ON SCHEMA workbench TO {{ .Values.postgres.auth.workbenchUser }};
     ALTER DEFAULT PRIVILEGES IN SCHEMA workbench
       GRANT ALL ON TABLES TO {{ .Values.postgres.auth.workbenchUser }};

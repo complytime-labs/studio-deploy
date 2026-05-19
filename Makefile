@@ -23,10 +23,11 @@ IMAGES := studio-gateway complytime-studio studio-workbench
 VALUES_DEV := -f $(CHART)/values-dev.yaml
 VALUES_HEADLESS := $(VALUES_DEV) -f $(CHART)/values-headless.yaml
 VALUES_DEV_AUTH := $(VALUES_DEV) -f $(CHART)/values-dev-auth.yaml
+VALUES_GHCR := $(VALUES_DEV) -f $(CHART)/values-ghcr.yaml
 
 .PHONY: help infra-up infra-down \
 	kind-create kind-delete kind-build kind-load kind-reset \
-	helm-headless helm-dev helm-dev-auth helm-template helm-upgrade helm-uninstall \
+	helm-headless helm-dev helm-dev-auth helm-ghcr helm-template helm-upgrade helm-uninstall \
 	test-headless test-helm-headless test-api test-ui test-agents test-e2e
 
 help: ## Show available targets
@@ -76,6 +77,9 @@ helm-headless: ## Install headless profile (API-only, no auth)
 
 helm-dev: ## Install full dev profile (all components, no auth)
 	helm install $(RELEASE) $(CHART) -n $(NAMESPACE) --create-namespace $(VALUES_DEV)
+
+helm-ghcr: ## Install dev profile using published GHCR images
+	helm install $(RELEASE) $(CHART) -n $(NAMESPACE) --create-namespace $(VALUES_GHCR)
 
 helm-dev-auth: ## Dev+OAuth: OIDC_* from `.env`/env only (not make CLI args)
 	@test -n "$(OIDC_ISSUER)" || (echo "OIDC_ISSUER: add to .env (.env.example)"; exit 1)

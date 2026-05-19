@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# GHCR profile — pull published images from ghcr.io/complytime-labs instead
+# of requiring a local `kind-build && kind-load` cycle.
+# Uses `Always` pull policy so mutable :latest tags are never stale.
+#
+# Usage:
+#   helm install studio charts/complytime \
+#     -f charts/complytime/values-dev.yaml \
+#     -f charts/complytime/values-ghcr.yaml
+#   — or —
+#   make helm-ghcr
+
+studio:
+  image:
+    repository: ghcr.io/complytime-labs/studio-ui
+    tag: latest
+    pullPolicy: Always
+
+gateway:
+  image:
+    repository: ghcr.io/complytime-labs/studio-gateway
+    tag: latest
+    pullPolicy: Always
+
+workbench:
+  image:
+    repository: ghcr.io/complytime-labs/studio-workbench
+    tag: latest
+    pullPolicy: Always
+
+assistant:
+  image:
+    repository: ghcr.io/complytime-labs/studio-assistant
+    tag: latest
+    pullPolicy: Always

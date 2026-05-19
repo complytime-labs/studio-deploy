@@ -24,7 +24,7 @@ spec:
       containers:
         - name: studio
           image: "{{ .Values.studio.image.repository }}:{{ .Values.studio.image.tag }}"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{ .Values.studio.image.pullPolicy | default "IfNotPresent" }}
           ports:
             - containerPort: 80
               name: http

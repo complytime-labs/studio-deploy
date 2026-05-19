@@ -26,7 +26,7 @@ spec:
       containers:
         - name: workbench
           image: "{{ .Values.workbench.image.repository }}:{{ .Values.workbench.image.tag }}"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{ .Values.workbench.image.pullPolicy | default "IfNotPresent" }}
           ports:
             - name: workbench
               containerPort: 8090
