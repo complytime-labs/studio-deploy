@@ -20,7 +20,7 @@ spec:
   byo:
     deployment:
       image: "{{ .Values.assistant.image.repository }}:{{ .Values.assistant.image.tag }}"
-      imagePullPolicy: IfNotPresent
+      imagePullPolicy: {{ .Values.assistant.image.pullPolicy | default "IfNotPresent" }}
       {{- $shortName := "assistant" }}
       {{- $agentOverride := dict }}
       {{- if hasKey .Values.agents $shortName }}
